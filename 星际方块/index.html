@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>星际迷航俄罗斯方块</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-header">
+            <h1>星际迷航俄罗斯方块</h1>
+            <div class="score-board">
+                <div>分数: <span id="score">0</span></div>
+                <div>等级: <span id="level">1</span></div>
+            </div>
+        </div>
+        <div class="game-area">
+            <canvas id="gameCanvas"></canvas>
+            <div class="game-controls">
+                <div class="next-piece">
+                    <h3>下一个形状</h3>
+                    <canvas id="nextCanvas"></canvas>
+                </div>
+                <div class="controls">
+                    <h3>控制说明</h3>
+                    <p>← → : 左右移动</p>
+                    <p>↑ : 旋转</p>
+                    <p>↓ : 加速下落</p>
+                    <p>空格 : 直接落下</p>
+                </div>
+                <button id="startBtn">开始游戏</button>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html> 

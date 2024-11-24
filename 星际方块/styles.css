@@ -1,0 +1,72 @@
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #000;
+    color: #00ff00;
+    font-family: 'Arial', sans-serif;
+    background-image: url('https://source.unsplash.com/random/1920x1080/?space');
+    background-size: cover;
+}
+
+.game-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.game-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.game-area {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+}
+
+#gameCanvas {
+    border: 2px solid #00ff00;
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
+.game-controls {
+    background-color: rgba(0, 0, 0, 0.8);
+    padding: 20px;
+    border: 2px solid #00ff00;
+}
+
+.next-piece {
+    margin-bottom: 20px;
+}
+
+#nextCanvas {
+    border: 1px solid #00ff00;
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
+.controls {
+    margin-bottom: 20px;
+}
+
+button {
+    background-color: #00ff00;
+    color: #000;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-weight: bold;
+    width: 100%;
+}
+
+button:hover {
+    background-color: #00cc00;
+}
+
+.score-board {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    font-size: 1.2em;
+    margin-top: 10px;
+} 
