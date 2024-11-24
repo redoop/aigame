@@ -60,6 +60,9 @@ class SpaceGame {
             volume: 0.2
         };
         
+        // 添加敌方子弹数组
+        this.enemyBullets = [];
+        
         // 开始游戏循环
         this.gameLoop();
     }
@@ -158,9 +161,13 @@ class SpaceGame {
         for (let i = 0; i < 5; i++) {
             this.enemies.push({
                 x: Math.random() * (this.canvas.width - 40) + 20,
-                y: Math.random() * (this.canvas.height * 0.5),
-                size: 20,
-                speed: 2
+                y: Math.random() * (this.canvas.height * 0.3),
+                size: 25,
+                speed: 2,
+                shootTimer: Math.random() * 100,  // 射击计时器
+                shootInterval: 100,  // 射击间隔
+                health: 30,  // 敌人生命值
+                direction: Math.random() < 0.5 ? -1 : 1  // 移动方向
             });
         }
     }
@@ -359,17 +366,70 @@ class SpaceGame {
         }
         
         // 更新敌人
-        this.enemies.forEach(enemy => {
-            enemy.y += enemy.speed;
-            if (enemy.y > this.canvas.height) {
-                enemy.y = -20;
-                enemy.x = Math.random() * (this.canvas.width - 40) + 20;
+        for (let i = this.enemies.length - 1; i >= 0; i--) {
+            const enemy = this.enemies[i];
+            
+            // 左右移动
+            enemy.x += enemy.speed * enemy.direction;
+            
+            // 碰到边界就改变方向
+            if (enemy.x <= enemy.size || enemy.x >= this.canvas.width - enemy.size) {
+                enemy.direction *= -1;
             }
-        });
+            
+            // 更新射击计时器
+            enemy.shootTimer++;
+            if (enemy.shootTimer >= enemy.shootInterval) {
+                this.enemyShoot(enemy);
+                enemy.shootTimer = 0;
+                enemy.shootInterval = 80 + Math.random() * 40; // 随机射击间隔
+            }
+            
+            // 检查是否被子弹击中
+            for (let j = this.bullets.length - 1; j >= 0; j--) {
+                const bullet = this.bullets[j];
+                const dx = bullet.x - enemy.x;
+                const dy = bullet.y - enemy.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < enemy.size + bullet.size) {
+                    enemy.health -= 10;
+                    this.bullets.splice(j, 1);
+                    
+                    if (enemy.health <= 0) {
+                        this.createExplosion(enemy.x, enemy.y, enemy.size);
+                        this.enemies.splice(i, 1);
+                        this.ship.score += 30;
+                        break;
+                    }
+                }
+            }
+        }
         
-        // 如果敌人数量少于5，生成新的敌人
-        if (this.enemies.length < 5) {
-            this.generateEnemies();
+        // 更新敌人子弹
+        for (let i = this.enemyBullets.length - 1; i >= 0; i--) {
+            const bullet = this.enemyBullets[i];
+            bullet.y += bullet.speed;
+            
+            // 移除出界的子弹
+            if (bullet.y > this.canvas.height) {
+                this.enemyBullets.splice(i, 1);
+                continue;
+            }
+            
+            // 检测是否击中玩家
+            const dx = bullet.x - this.ship.x;
+            const dy = bullet.y - this.ship.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance < this.ship.size + bullet.size) {
+                this.enemyBullets.splice(i, 1);
+                this.ship.health -= 10;
+                this.playSound('alert');
+                
+                // 创建受伤特效
+                this.createHitEffect(this.ship.x, this.ship.y);
+            }
         }
         
         // 更新陨石
@@ -465,6 +525,34 @@ class SpaceGame {
                 size: 3,
                 life: 1.0,
                 color: '#FFD700'
+            });
+        }
+    }
+    
+    // 添加敌人射击方法
+    enemyShoot(enemy) {
+        this.enemyBullets.push({
+            x: enemy.x,
+            y: enemy.y + enemy.size,
+            size: 5,
+            speed: 5,
+            color: '#ff0000'
+        });
+    }
+    
+    // 添加受伤特效
+    createHitEffect(x, y) {
+        const particleCount = 8;
+        for (let i = 0; i < particleCount; i++) {
+            const angle = (Math.PI * 2 / particleCount) * i;
+            this.explosions.push({
+                x: x,
+                y: y,
+                vx: Math.cos(angle) * 2,
+                vy: Math.sin(angle) * 2,
+                size: 2,
+                life: 0.5,
+                color: '#ff0000'
             });
         }
     }
@@ -595,6 +683,69 @@ class SpaceGame {
         this.ctx.fillStyle = '#ffffff';
         this.ctx.font = '20px Arial';
         this.ctx.fillText(`分数: ${this.ship.score}`, 10, 30);
+        
+        // 绘制敌人（炸鸡造型）
+        this.enemies.forEach(enemy => {
+            this.ctx.save();
+            this.ctx.translate(enemy.x, enemy.y);
+            
+            // 绘制炸鸡主体
+            this.ctx.fillStyle = '#FFD700';  // 金黄色
+            this.ctx.beginPath();
+            this.ctx.arc(0, 0, enemy.size, 0, Math.PI * 2);
+            this.ctx.fill();
+            
+            // 绘制炸鸡外壳
+            this.ctx.strokeStyle = '#8B4513';  // 棕色
+            this.ctx.lineWidth = 3;
+            this.ctx.beginPath();
+            for (let i = 0; i < 8; i++) {
+                const angle = (Math.PI * 2 / 8) * i;
+                const x = Math.cos(angle) * (enemy.size + 5);
+                const y = Math.sin(angle) * (enemy.size + 5);
+                this.ctx.lineTo(x, y);
+            }
+            this.ctx.closePath();
+            this.ctx.stroke();
+            
+            // 绘制眼睛
+            this.ctx.fillStyle = '#FF0000';  // 红色眼睛
+            this.ctx.beginPath();
+            this.ctx.arc(-8, -5, 4, 0, Math.PI * 2);
+            this.ctx.arc(8, -5, 4, 0, Math.PI * 2);
+            this.ctx.fill();
+            
+            // 绘制生命值条
+            const healthBarWidth = enemy.size * 2;
+            const healthBarHeight = 4;
+            this.ctx.fillStyle = '#333';
+            this.ctx.fillRect(-healthBarWidth/2, -enemy.size - 10, healthBarWidth, healthBarHeight);
+            this.ctx.fillStyle = '#00ff00';
+            this.ctx.fillRect(-healthBarWidth/2, -enemy.size - 10, 
+                            healthBarWidth * (enemy.health / 30), healthBarHeight);
+            
+            this.ctx.restore();
+        });
+        
+        // 绘制敌人子弹
+        this.enemyBullets.forEach(bullet => {
+            this.ctx.fillStyle = bullet.color;
+            this.ctx.beginPath();
+            this.ctx.arc(bullet.x, bullet.y, bullet.size, 0, Math.PI * 2);
+            this.ctx.fill();
+            
+            // 添加子弹光晕效果
+            const gradient = this.ctx.createRadialGradient(
+                bullet.x, bullet.y, bullet.size,
+                bullet.x, bullet.y, bullet.size * 2
+            );
+            gradient.addColorStop(0, 'rgba(255, 0, 0, 0.3)');
+            gradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
+            this.ctx.fillStyle = gradient;
+            this.ctx.beginPath();
+            this.ctx.arc(bullet.x, bullet.y, bullet.size * 2, 0, Math.PI * 2);
+            this.ctx.fill();
+        });
     }
     
     // 添加变形金刚风格的飞船绘制方法
