@@ -14,7 +14,9 @@ class SpaceGame {
             y: this.canvas.height * 0.8,
             size: 20,
             speed: 5,
-            score: 0
+            score: 0,
+            health: 100,
+            maxHealth: 100
         };
         
         this.bullets = [];
@@ -41,6 +43,22 @@ class SpaceGame {
         
         // 初始化音频系统
         this.initAudio();
+        
+        // 添加星星数组
+        this.stars = [];
+        
+        // 生成初始星星
+        this.generateStars(10);
+        
+        // 添加星星收集音效
+        this.sounds.collect = {
+            oscillator: null,
+            gainNode: null,
+            frequency: 1500,
+            type: 'sine',
+            duration: 0.2,
+            volume: 0.2
+        };
         
         // 开始游戏循环
         this.gameLoop();
@@ -298,7 +316,22 @@ class SpaceGame {
         this.playSound('explosion');
     }
     
-    // 更新游戏状态
+    // 添加星星生成方法
+    generateStars(count) {
+        for (let i = 0; i < count; i++) {
+            this.stars.push({
+                x: Math.random() * this.canvas.width,
+                y: Math.random() * this.canvas.height,
+                size: 15,
+                rotation: Math.random() * Math.PI * 2,
+                color: '#FFD700',
+                healing: 10 + Math.random() * 20, // 恢复生命值的量
+                speed: 1 + Math.random()
+            });
+        }
+    }
+    
+    // 修改更新方法，添加星星相关逻辑
     update() {
         // 更新子弹
         for (let i = this.bullets.length - 1; i >= 0; i--) {
@@ -385,6 +418,55 @@ class SpaceGame {
                 this.explosions.splice(i, 1);
             }
         }
+        
+        // 更新星星
+        for (let i = this.stars.length - 1; i >= 0; i--) {
+            const star = this.stars[i];
+            
+            // 星星缓慢下落
+            star.y += star.speed;
+            star.rotation += 0.02;
+            
+            // 如果星星超出屏幕底部，重置到顶部
+            if (star.y > this.canvas.height) {
+                star.y = -star.size;
+                star.x = Math.random() * this.canvas.width;
+            }
+            
+            // 检测与飞船的碰撞
+            const dx = this.ship.x - star.x;
+            const dy = this.ship.y - star.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance < this.ship.size + star.size) {
+                // 收集星星，恢复生命值
+                this.ship.health = Math.min(this.ship.maxHealth, this.ship.health + star.healing);
+                this.ship.score += 50;
+                this.stars.splice(i, 1);
+                this.generateStars(1); // 生成新的星星
+                this.playSound('collect');
+                
+                // 创建收集特效
+                this.createCollectEffect(star.x, star.y);
+            }
+        }
+    }
+    
+    // 添加收集特效方法
+    createCollectEffect(x, y) {
+        const particleCount = 8;
+        for (let i = 0; i < particleCount; i++) {
+            const angle = (Math.PI * 2 / particleCount) * i;
+            this.explosions.push({
+                x: x,
+                y: y,
+                vx: Math.cos(angle) * 3,
+                vy: Math.sin(angle) * 3,
+                size: 3,
+                life: 1.0,
+                color: '#FFD700'
+            });
+        }
     }
     
     // 绘制游戏画面
@@ -456,6 +538,58 @@ class SpaceGame {
             this.ctx.fillStyle = gradient;
             this.ctx.fill();
         });
+        
+        // 绘制星星
+        this.stars.forEach(star => {
+            this.ctx.save();
+            this.ctx.translate(star.x, star.y);
+            this.ctx.rotate(star.rotation);
+            
+            // 绘制五角星
+            this.ctx.beginPath();
+            for (let i = 0; i < 5; i++) {
+                const angle = (Math.PI * 2 * i) / 5 - Math.PI / 2;
+                const x = Math.cos(angle) * star.size;
+                const y = Math.sin(angle) * star.size;
+                if (i === 0) {
+                    this.ctx.moveTo(x, y);
+                } else {
+                    this.ctx.lineTo(x, y);
+                }
+            }
+            this.ctx.closePath();
+            this.ctx.fillStyle = star.color;
+            this.ctx.fill();
+            
+            // 添加星星光晕
+            const gradient = this.ctx.createRadialGradient(0, 0, 0, 0, 0, star.size * 1.5);
+            gradient.addColorStop(0, 'rgba(255, 215, 0, 0.3)');
+            gradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+            this.ctx.fillStyle = gradient;
+            this.ctx.fill();
+            
+            this.ctx.restore();
+        });
+        
+        // 绘制生命值条
+        const healthBarWidth = 200;
+        const healthBarHeight = 10;
+        const healthBarX = 10;
+        const healthBarY = 50;
+        
+        // 背景
+        this.ctx.fillStyle = '#333';
+        this.ctx.fillRect(healthBarX, healthBarY, healthBarWidth, healthBarHeight);
+        
+        // 生命值
+        const healthPercent = this.ship.health / this.ship.maxHealth;
+        this.ctx.fillStyle = `hsl(${120 * healthPercent}, 100%, 50%)`;
+        this.ctx.fillRect(healthBarX, healthBarY, healthBarWidth * healthPercent, healthBarHeight);
+        
+        // 生命值文字
+        this.ctx.fillStyle = '#FFF';
+        this.ctx.font = '14px Arial';
+        this.ctx.fillText(`生命值: ${Math.floor(this.ship.health)}`, healthBarX, healthBarY - 5);
         
         // 绘制分数
         this.ctx.fillStyle = '#ffffff';
