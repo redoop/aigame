@@ -6,48 +6,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         canvas {
-            border: 1px solid #000;
+            border: none;
             display: block;
-            margin: 0 auto;
-            touch-action: none;
             width: 100vw;
             height: 100vh;
-            max-width: 800px;
-            max-height: 600px;
+            touch-action: none;
         }
         body {
-            background: #000;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
             margin: 0;
+            padding: 0;
             overflow: hidden;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            background: #000;
         }
         .game-title {
+            position: absolute;
+            top: 10px;
+            left: 0;
+            right: 0;
             color: #4169E1;
-            font-size: 48px;
-            font-family: 'Arial', sans-serif;
-            text-shadow: 0 0 10px #00ffff,
-                         0 0 20px #00ffff,
-                         0 0 30px #00ffff;
-            margin-bottom: 20px;
-            text-align: center;
-            animation: glow 2s ease-in-out infinite alternate;
-        }
-        
-        @keyframes glow {
-            from {
-                text-shadow: 0 0 10px #00ffff,
-                            0 0 20px #00ffff,
-                            0 0 30px #00ffff;
-            }
-            to {
-                text-shadow: 0 0 20px #00ffff,
-                            0 0 30px #00ffff,
-                            0 0 40px #00ffff;
-            }
+            font-size: min(48px, 8vw);
+            margin-bottom: 10px;
+            z-index: 1;
         }
         
         button {
@@ -67,6 +49,16 @@
         h2 {
             color: #00ffff;
             text-align: center;
+        }
+        
+        * {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
     </style>
 </head>

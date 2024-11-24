@@ -4,16 +4,17 @@ class SpaceGame {
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
         
-        // 设置画布大小
-        this.canvas.width = 800;
-        this.canvas.height = 600;
+        // 设置画布大小为设备屏幕大小
+        this.resizeCanvas();
+        window.addEventListener('resize', () => this.resizeCanvas());
         
-        // 初始化飞船
+        // 初始化飞船 - 位置改为底部20%处
         this.ship = {
             x: this.canvas.width / 2,
-            y: this.canvas.height - 50,
+            y: this.canvas.height * 0.8,
             speed: 5,
-            score: 0
+            score: 0,
+            size: this.calculateGameScale() * 30 // 飞船大小根据屏幕缩放
         };
         
         // 初始化游戏对象
@@ -68,7 +69,7 @@ class SpaceGame {
             { note: 'G4', duration: 1.0, frequency: 392 },   // 快
             { note: 'F4', duration: 2.0, frequency: 349 },   // 乐
             
-            { note: 'C4', duration: 0.75, frequency: 262 },  // ���
+            { note: 'C4', duration: 0.75, frequency: 262 },  // 
             { note: 'C4', duration: 0.25, frequency: 262 },  // 你
             { note: 'C5', duration: 1.0, frequency: 523 },   // 生
             { note: 'A4', duration: 1.0, frequency: 440 },   // 日
@@ -116,12 +117,13 @@ class SpaceGame {
     
     // 生成陨石
     generateMeteors(count) {
+        const meteorSize = this.gameScale * 20; // 陨石大小根据屏幕缩放
         for (let i = 0; i < count; i++) {
             this.meteors.push({
                 x: Math.random() * this.canvas.width,
-                y: -20,
-                size: Math.random() * 20 + 20,
-                speed: Math.random() * 2 + 1,
+                y: -meteorSize,
+                size: meteorSize + Math.random() * (meteorSize),
+                speed: (Math.random() * 2 + 1) * this.gameScale,
                 color: '#FF6B6B'
             });
         }
@@ -129,15 +131,15 @@ class SpaceGame {
     
     // 射击
     shoot() {
+        const bulletSize = this.gameScale * 5; // 子弹大小根据屏幕缩放
         this.bullets.push({
             x: this.ship.x,
             y: this.ship.y,
-            speed: 10,
-            size: 5,
+            speed: 10 * this.gameScale,
+            size: bulletSize,
             color: '#00ff00'
         });
         
-        // 播放射击音效
         this.playSound('shoot');
     }
     
@@ -303,10 +305,11 @@ class SpaceGame {
             this.ctx.fill();
         });
         
-        // 绘制分数
+        // 调整分数显示大小和位置
+        const fontSize = Math.max(16, Math.floor(20 * this.gameScale));
         this.ctx.fillStyle = '#FFF';
-        this.ctx.font = '20px Arial';
-        this.ctx.fillText(`分数: ${this.ship.score}`, 10, 30);
+        this.ctx.font = `${fontSize}px Arial`;
+        this.ctx.fillText(`分数: ${this.ship.score}`, 10, fontSize + 10);
     }
     
     // 添加变形金刚风格的飞船绘制方法
@@ -416,16 +419,17 @@ class SpaceGame {
     
     // 添加生成敌机的方法
     generateEnemies(count) {
+        const enemySize = this.gameScale * 30; // 敌机大小根据屏幕缩放
         for (let i = 0; i < count; i++) {
             this.enemies.push({
-                x: Math.random() * (this.canvas.width - 40) + 20,
-                y: Math.random() * 200 + 50,
-                width: 30,
-                height: 30,
-                speed: 2,
-                direction: Math.random() < 0.5 ? -1 : 1,  // 随机初始方向
-                shootTimer: Math.random() * 100,  // 随机射击时间
-                color: '#ff4444'  // 红色敌机
+                x: Math.random() * (this.canvas.width - enemySize * 2) + enemySize,
+                y: Math.random() * (this.canvas.height * 0.3) + enemySize,
+                width: enemySize,
+                height: enemySize,
+                speed: 2 * this.gameScale,
+                direction: Math.random() < 0.5 ? -1 : 1,
+                shootTimer: Math.random() * 100,
+                color: '#ff4444'
             });
         }
     }
@@ -561,12 +565,22 @@ class SpaceGame {
         
         const touch = e.touches[0];
         const rect = this.canvas.getBoundingClientRect();
-        const x = touch.clientX - rect.left;
-        const y = touch.clientY - rect.top;
+        const scale = this.canvas.width / rect.width;
         
-        // 确保飞船在画布范围内
-        this.ship.x = Math.max(20, Math.min(this.canvas.width - 20, x));
-        this.ship.y = Math.max(20, Math.min(this.canvas.height - 20, y));
+        // 计算实际触摸位置
+        const x = (touch.clientX - rect.left) * scale;
+        const y = (touch.clientY - rect.top) * scale;
+        
+        // 平滑移动
+        const dx = x - this.ship.x;
+        const dy = y - this.ship.y;
+        
+        this.ship.x += dx * 0.2; // 添加平滑效果
+        this.ship.y += dy * 0.2;
+        
+        // 限制飞船移动范围
+        this.ship.x = Math.max(this.ship.size, Math.min(this.canvas.width - this.ship.size, this.ship.x));
+        this.ship.y = Math.max(this.canvas.height * 0.2, Math.min(this.canvas.height * 0.9, this.ship.y));
     }
 
     handleTouchEnd(e) {
@@ -574,5 +588,33 @@ class SpaceGame {
         this.touchStartX = null;
         this.touchStartY = null;
         this.isShooting = false;
+    }
+
+    // 添加画布大小调整方法
+    resizeCanvas() {
+        // 获取设备屏幕尺寸
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+        
+        // 设置画布大小
+        this.canvas.width = screenWidth;
+        this.canvas.height = screenHeight;
+        
+        // 重新计算游戏元素大小
+        this.gameScale = this.calculateGameScale();
+        
+        // 确保飞船在调整大小后保持在可见区域内
+        if (this.ship) {
+            this.ship.x = Math.min(Math.max(this.ship.size, this.ship.x), this.canvas.width - this.ship.size);
+            this.ship.y = Math.min(this.canvas.height * 0.8, this.canvas.height - this.ship.size);
+            this.ship.size = this.gameScale * 30;
+        }
+    }
+
+    // 添加游戏元素缩放计算方法
+    calculateGameScale() {
+        // 基于屏幕尺寸计算缩放比例
+        const baseWidth = 800; // 基准宽度
+        return Math.min(this.canvas.width / baseWidth, 1);
     }
 } 
