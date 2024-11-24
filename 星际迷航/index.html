@@ -3,11 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <title>星际迷航 - 昆仑巢</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         canvas {
             border: 1px solid #000;
             display: block;
-            margin: 20px auto;
+            margin: 0 auto;
+            touch-action: none;
+            width: 100vw;
+            height: 100vh;
+            max-width: 800px;
+            max-height: 600px;
         }
         body {
             background: #000;
@@ -17,6 +23,7 @@
             align-items: center;
             height: 100vh;
             margin: 0;
+            overflow: hidden;
         }
         .game-title {
             color: #4169E1;

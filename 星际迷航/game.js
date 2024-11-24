@@ -23,13 +23,22 @@ class SpaceGame {
         
         // 初始化控制
         this.keys = {};
-        window.addEventListener('keydown', (e) => this.keys[e.key] = true);
-        window.addEventListener('keyup', (e) => this.keys[e.key] = false);
-        window.addEventListener('keydown', (e) => {
-            if (e.code === 'Space') {
+        this.touchStartX = null;
+        this.touchStartY = null;
+        this.isShooting = false;
+        
+        // 移除键盘事件监听
+        // 添加触摸事件监听
+        this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
+        this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e));
+        this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e));
+        
+        // 添加自动射击
+        setInterval(() => {
+            if (this.isShooting) {
                 this.shoot();
             }
-        });
+        }, 500); // 每500ms射击一次
         
         // 生成初始星星和陨石
         this.generateStars();
@@ -59,7 +68,7 @@ class SpaceGame {
             { note: 'G4', duration: 1.0, frequency: 392 },   // 快
             { note: 'F4', duration: 2.0, frequency: 349 },   // 乐
             
-            { note: 'C4', duration: 0.75, frequency: 262 },  // 祝
+            { note: 'C4', duration: 0.75, frequency: 262 },  // ���
             { note: 'C4', duration: 0.25, frequency: 262 },  // 你
             { note: 'C5', duration: 1.0, frequency: 523 },   // 生
             { note: 'A4', duration: 1.0, frequency: 440 },   // 日
@@ -190,20 +199,6 @@ class SpaceGame {
     
     // 更新游戏状态
     update() {
-        // 更新飞船位置
-        if (this.keys['ArrowLeft'] && this.ship.x > 20) {
-            this.ship.x -= this.ship.speed;
-        }
-        if (this.keys['ArrowRight'] && this.ship.x < this.canvas.width - 20) {
-            this.ship.x += this.ship.speed;
-        }
-        if (this.keys['ArrowUp'] && this.ship.y > 20) {
-            this.ship.y -= this.ship.speed;
-        }
-        if (this.keys['ArrowDown'] && this.ship.y < this.canvas.height - 20) {
-            this.ship.y += this.ship.speed;
-        }
-        
         // 更新子弹
         for (let i = this.bullets.length - 1; i >= 0; i--) {
             this.bullets[i].y -= this.bullets[i].speed;
@@ -250,10 +245,8 @@ class SpaceGame {
             }
         });
         
-        // 添加引擎音效
-        if (this.keys['ArrowLeft'] || this.keys['ArrowRight'] || 
-            this.keys['ArrowUp'] || this.keys['ArrowDown']) {
-            // 移动时播放引擎音效
+        // 修改引擎音效触发条件
+        if (this.touchStartX !== null || this.touchStartY !== null) {
             this.playSound('engine');
         }
         
@@ -551,5 +544,35 @@ class SpaceGame {
         this.update();
         this.draw();
         requestAnimationFrame(() => this.gameLoop());
+    }
+
+    // 添加触摸事件处理方法
+    handleTouchStart(e) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        this.touchStartX = touch.clientX;
+        this.touchStartY = touch.clientY;
+        this.isShooting = true;
+    }
+
+    handleTouchMove(e) {
+        e.preventDefault();
+        if (!this.touchStartX || !this.touchStartY) return;
+        
+        const touch = e.touches[0];
+        const rect = this.canvas.getBoundingClientRect();
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+        
+        // 确保飞船在画布范围内
+        this.ship.x = Math.max(20, Math.min(this.canvas.width - 20, x));
+        this.ship.y = Math.max(20, Math.min(this.canvas.height - 20, y));
+    }
+
+    handleTouchEnd(e) {
+        e.preventDefault();
+        this.touchStartX = null;
+        this.touchStartY = null;
+        this.isShooting = false;
     }
 } 
