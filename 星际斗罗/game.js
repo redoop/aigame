@@ -7,7 +7,8 @@ class SoundManager {
             explosion: this.createOscillator('explosion'),
             background: this.createOscillator('background'),
             collect: this.createOscillator('collect'),
-            bombExplode: this.createOscillator('bombExplode')
+            bombExplode: this.createOscillator('bombExplode'),
+            hurt: this.createOscillator('hurt')
         };
     }
 
@@ -43,16 +44,12 @@ class SoundManager {
                         break;
 
                     case 'vehicleShoot':
-                        // 车辆射击：三连发音效
+                        // 简化车辆射击音效，只播放一次
                         oscillator.frequency.setValueAtTime(400, audioContext.currentTime);
-                        gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
-                        gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.05);
+                        gainNode.gain.setValueAtTime(0.15, audioContext.currentTime);
+                        gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.1);
                         oscillator.start();
-                        oscillator.stop(audioContext.currentTime + 0.05);
-                        
-                        // 延迟播放第二和第三发
-                        setTimeout(() => this.createOscillator('vehicleShoot').play(), 50);
-                        setTimeout(() => this.createOscillator('vehicleShoot').play(), 100);
+                        oscillator.stop(audioContext.currentTime + 0.1);
                         break;
 
                     case 'explosion':
@@ -93,6 +90,16 @@ class SoundManager {
                         oscillator.start();
                         oscillator.stop(audioContext.currentTime + 0.5);
                         break;
+
+                    case 'hurt':
+                        // 受伤音效：短促的低音
+                        oscillator.type = 'square';
+                        oscillator.frequency.setValueAtTime(150, audioContext.currentTime);
+                        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                        gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.2);
+                        oscillator.start();
+                        oscillator.stop(audioContext.currentTime + 0.2);
+                        break;
                 }
             }
         };
@@ -111,10 +118,15 @@ class Game {
             speed: 5,
             isRobot: true,
             health: 100,
+            maxHealth: 100,
             transformCooldown: 0,
-            bombs: 0  // 添加炸弹计数
+            bombs: 0,
+            invincible: 0
         };
         this.bullets = [];
+        this.maxBullets = 20;  // 降低最大子弹数量
+        this.shootCooldown = 0;
+        this.vehicleShootCount = 0;  // 添加车辆射击计数器
         this.enemies = [];
         this.keys = {};
         
@@ -178,6 +190,9 @@ class Game {
             if (e.key === 'q' && this.player.bombs > 0) {
                 this.launchBomb();
             }
+            if (e.key === ' ' && this.isGameOver) {
+                this.restartGame();
+            }
         });
         
         window.addEventListener('click', () => {
@@ -203,30 +218,69 @@ class Game {
     }
 
     shoot() {
+        // 检查子弹数量和冷却时间
+        if (this.bullets.length >= this.maxBullets || this.shootCooldown > 0) {
+            return;
+        }
+
         const bulletY = this.player.y + this.player.height / 2;
-        const bulletType = this.player.isRobot ? 'normal' : 'rapid';
         
-        if (bulletType === 'normal') {
+        if (this.player.isRobot) {
+            // 机器人形态：单发强力子弹
             this.bullets.push({
                 x: this.player.x + this.player.width,
                 y: bulletY,
                 width: 20,
                 height: 8,
                 speed: 12,
-                damage: 20
+                damage: 20,
+                lifetime: 60  // 缩短生命周期
             });
+            this.shootCooldown = 10;
             this.soundManager.sounds.robotShoot.play();
         } else {
-            for (let i = 0; i < 3; i++) {
-                this.bullets.push({
+            // 车辆形态：单次发射三发子弹，不使用forEach
+            const angles = [-10, 0, 10];
+            const radians0 = angles[0] * Math.PI / 180;
+            const radians1 = angles[1] * Math.PI / 180;
+            const radians2 = angles[2] * Math.PI / 180;
+            
+            // 直接添加三发子弹
+            this.bullets.push(
+                {
                     x: this.player.x + this.player.width,
-                    y: bulletY - 10 + i * 10,
+                    y: bulletY,
                     width: 15,
                     height: 6,
-                    speed: 15,
-                    damage: 10
-                });
-            }
+                    speedX: Math.cos(radians0) * 15,
+                    speedY: Math.sin(radians0) * 5,
+                    damage: 10,
+                    lifetime: 30  // 大幅缩短车辆子弹生命周期
+                },
+                {
+                    x: this.player.x + this.player.width,
+                    y: bulletY,
+                    width: 15,
+                    height: 6,
+                    speedX: Math.cos(radians1) * 15,
+                    speedY: Math.sin(radians1) * 5,
+                    damage: 10,
+                    lifetime: 30
+                },
+                {
+                    x: this.player.x + this.player.width,
+                    y: bulletY,
+                    width: 15,
+                    height: 6,
+                    speedX: Math.cos(radians2) * 15,
+                    speedY: Math.sin(radians2) * 5,
+                    damage: 10,
+                    lifetime: 30
+                }
+            );
+            
+            this.shootCooldown = 20;  // 增加车辆形态的射击冷却时间
+            // 简化音效，只播放一次
             this.soundManager.sounds.vehicleShoot.play();
         }
     }
@@ -257,12 +311,38 @@ class Game {
             this.player.x += this.player.speed;
         }
 
-        this.bullets.forEach((bullet, index) => {
-            bullet.x += bullet.speed;
-            if (bullet.x > this.canvas.width) {
-                this.bullets.splice(index, 1);
+        // 更新射击冷却时间
+        if (this.shootCooldown > 0) {
+            this.shootCooldown--;
+        }
+
+        // 优化子弹更新逻辑，使用批量更新
+        const newBullets = [];
+        const len = this.bullets.length;
+        
+        for (let i = 0; i < len; i++) {
+            const bullet = this.bullets[i];
+            
+            // 更新子弹位置
+            if (bullet.speedX !== undefined) {
+                bullet.x += bullet.speedX;
+                bullet.y += bullet.speedY;
+            } else {
+                bullet.x += bullet.speed;
             }
-        });
+            
+            bullet.lifetime--;
+            
+            // 只保留有效的子弹
+            if (bullet.lifetime > 0 && 
+                bullet.x < this.canvas.width && 
+                bullet.y > 0 && 
+                bullet.y < this.canvas.height) {
+                newBullets.push(bullet);
+            }
+        }
+        
+        this.bullets = newBullets;
 
         if (Math.random() < 0.02) {
             this.enemies.push({
@@ -324,6 +404,14 @@ class Game {
         
         // 检查炸弹爆炸
         this.checkBombExplosions();
+
+        // 更新无敌时间
+        if (this.player.invincible > 0) {
+            this.player.invincible--;
+        }
+
+        // 检查与敌人的碰撞
+        this.checkPlayerCollisions();
     }
 
     checkCollisions() {
@@ -417,6 +505,16 @@ class Game {
             this.drawEnemy(enemy);
         });
 
+        // 绘制星星
+        this.stars.forEach(star => {
+            this.drawStar(star);
+        });
+
+        // 绘制炸弹
+        this.bombs.forEach(bomb => {
+            this.drawBomb(bomb);
+        });
+
         // 在绘制完其他内容后，添加按键提示
         this.ctx.fillStyle = '#ffffff';
         this.ctx.font = '16px Arial';
@@ -439,6 +537,28 @@ class Game {
             this.ctx.fillText(`变形冷却: ${this.player.transformCooldown}`, 10, 30);
         }
         this.ctx.fillText(`炸弹: ${this.player.bombs}`, 10, 50);
+
+        // 添加射击冷却显示
+        if (this.shootCooldown > 0) {
+            this.ctx.fillStyle = '#ffffff';
+            this.ctx.fillText(`射击冷却: ${this.shootCooldown}`, 10, 70);
+        }
+
+        // 绘制生命值条
+        this.drawHealthBar();
+
+        // 绘制游戏结束画面
+        if (this.isGameOver) {
+            this.drawGameOver();
+        }
+
+        // 无敌状态闪烁效果
+        if (this.player.invincible > 0 && Math.floor(this.player.invincible / 5) % 2 === 0) {
+            this.ctx.globalAlpha = 0.5;
+        }
+
+        // 重置透明度
+        this.ctx.globalAlpha = 1;
     }
 
     drawRobot() {
@@ -491,9 +611,27 @@ class Game {
             this.colors.bullet.vehicle;
 
         this.ctx.fillStyle = color;
-        this.ctx.beginPath();
-        this.ctx.arc(bullet.x, bullet.y, bullet.height/2, 0, Math.PI * 2);
-        this.ctx.fill();
+        
+        // 优化子弹渲染
+        if (this.player.isRobot) {
+            // 机器人形态：圆形子弹
+            this.ctx.beginPath();
+            this.ctx.arc(bullet.x, bullet.y, bullet.height/2, 0, Math.PI * 2);
+            this.ctx.fill();
+        } else {
+            // 车辆形态：椭圆形子弹，更流线型
+            this.ctx.beginPath();
+            this.ctx.ellipse(
+                bullet.x, 
+                bullet.y, 
+                bullet.width/2, 
+                bullet.height/2, 
+                0, 
+                0, 
+                Math.PI * 2
+            );
+            this.ctx.fill();
+        }
     }
 
     drawEnemy(enemy) {
@@ -550,6 +688,107 @@ class Game {
         this.ctx.lineTo(bomb.x - bomb.width, bomb.y - bomb.height);
         this.ctx.strokeStyle = '#ffffff';
         this.ctx.stroke();
+    }
+
+    drawHealthBar() {
+        const barWidth = 200;
+        const barHeight = 20;
+        const x = 10;
+        const y = 90;
+        
+        // 绘制背景
+        this.ctx.fillStyle = '#444';
+        this.ctx.fillRect(x, y, barWidth, barHeight);
+        
+        // 绘制当前生命值
+        const healthPercent = this.player.health / this.player.maxHealth;
+        const healthColor = this.getHealthColor(healthPercent);
+        this.ctx.fillStyle = healthColor;
+        this.ctx.fillRect(x, y, barWidth * healthPercent, barHeight);
+        
+        // 绘制生命值文字
+        this.ctx.fillStyle = '#fff';
+        this.ctx.font = '14px Arial';
+        this.ctx.fillText(
+            `生命值: ${Math.ceil(this.player.health)}/${this.player.maxHealth}`,
+            x + 5,
+            y + 15
+        );
+    }
+
+    drawGameOver() {
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        this.ctx.fillStyle = '#fff';
+        this.ctx.font = '48px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('游戏结束', this.canvas.width/2, this.canvas.height/2);
+        
+        this.ctx.font = '24px Arial';
+        this.ctx.fillText(
+            '按空格键重新开始',
+            this.canvas.width/2,
+            this.canvas.height/2 + 50
+        );
+        
+        // 重置文本对齐
+        this.ctx.textAlign = 'left';
+    }
+
+    getHealthColor(percent) {
+        if (percent > 0.6) return '#2ecc71'; // 绿色
+        if (percent > 0.3) return '#f1c40f'; // 黄色
+        return '#e74c3c';                    // 红色
+    }
+
+    checkPlayerCollisions() {
+        // 如果处于无敌状态，不检查碰撞
+        if (this.player.invincible > 0) return;
+
+        this.enemies.forEach(enemy => {
+            if (this.isColliding(this.player, enemy)) {
+                this.playerTakeDamage(20); // 受到20点伤害
+            }
+        });
+    }
+
+    playerTakeDamage(damage) {
+        this.player.health = Math.max(0, this.player.health - damage);
+        this.player.invincible = 60; // 受伤后1秒无敌时间
+        this.soundManager.sounds.hurt.play();
+
+        // 如果生命值为0，游戏结束
+        if (this.player.health <= 0) {
+            this.gameOver();
+        }
+    }
+
+    gameOver() {
+        // 游戏结束状态
+        this.isGameOver = true;
+        // 停止游戏循环
+        cancelAnimationFrame(this.animationFrame);
+    }
+
+    restartGame() {
+        // 重置玩家状态
+        this.player.health = this.player.maxHealth;
+        this.player.bombs = 0;
+        this.player.x = 100;
+        this.player.y = 300;
+        
+        // 清空所有数组
+        this.enemies = [];
+        this.bullets = [];
+        this.stars = [];
+        this.bombs = [];
+        
+        // 重置游戏状态
+        this.isGameOver = false;
+        
+        // 重新开始游戏循环
+        this.gameLoop();
     }
 
     gameLoop() {
