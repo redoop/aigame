@@ -135,36 +135,52 @@ class SpaceGame {
         }
     }
     
-    // 添加音频初始化方法
+    // 修改音频初始化方法
     initAudio() {
         try {
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
             
-            // 创建音效
+            // 创建星际迷航风格的音效
             this.sounds = {
                 shoot: {
+                    // 相位枪射击音效
                     oscillator: null,
                     gainNode: null,
-                    frequency: 880,
-                    type: 'square',
-                    duration: 0.1,
-                    volume: 0.1
+                    frequency: 1200,
+                    type: 'sine',
+                    duration: 0.15,
+                    volume: 0.2,
+                    sweep: true  // 添加频率扫描
                 },
                 explosion: {
+                    // 星际迷航爆炸音效
                     oscillator: null,
                     gainNode: null,
-                    frequency: 100,
+                    frequency: 150,
                     type: 'sawtooth',
-                    duration: 0.3,
-                    volume: 0.2
+                    duration: 0.4,
+                    volume: 0.3,
+                    noise: true  // 添加噪声
                 },
                 engine: {
+                    // 曲速引擎音效
                     oscillator: null,
                     gainNode: null,
-                    frequency: 50,
+                    frequency: 80,
                     type: 'sine',
-                    duration: 0.1,
-                    volume: 0.05
+                    duration: 0.2,
+                    volume: 0.1,
+                    modulation: true  // 添加调制
+                },
+                alert: {
+                    // 警报音效
+                    oscillator: null,
+                    gainNode: null,
+                    frequency: 800,
+                    type: 'square',
+                    duration: 0.3,
+                    volume: 0.15,
+                    alternating: true  // 添加交替音高
                 }
             };
         } catch (error) {
@@ -173,32 +189,83 @@ class SpaceGame {
         }
     }
     
-    // 添加音效播放方法
+    // 修改音效播放方法
     playSound(type) {
         if (!this.audioContext || !this.sounds[type]) return;
         
         const sound = this.sounds[type];
+        const currentTime = this.audioContext.currentTime;
         
         // 创建音频节点
         const oscillator = this.audioContext.createOscillator();
         const gainNode = this.audioContext.createGain();
         
-        // 设置音频参数
+        // 设置基本参数
         oscillator.type = sound.type;
-        oscillator.frequency.value = sound.frequency;
+        oscillator.frequency.setValueAtTime(sound.frequency, currentTime);
+        
+        // 添加特殊音效处理
+        if (sound.sweep) {
+            // 相位枪射击音效的频率扫描
+            oscillator.frequency.exponentialRampToValueAtTime(
+                sound.frequency * 0.5,
+                currentTime + sound.duration
+            );
+        }
+        
+        if (sound.modulation) {
+            // 曲速引擎的调制效果
+            const modulator = this.audioContext.createOscillator();
+            const modulatorGain = this.audioContext.createGain();
+            
+            modulator.frequency.value = 30;
+            modulatorGain.gain.value = 20;
+            
+            modulator.connect(modulatorGain);
+            modulatorGain.connect(oscillator.frequency);
+            modulator.start(currentTime);
+            modulator.stop(currentTime + sound.duration);
+        }
+        
+        if (sound.noise) {
+            // 爆炸音效的噪声处理
+            const noiseGain = this.audioContext.createGain();
+            noiseGain.gain.setValueAtTime(sound.volume, currentTime);
+            noiseGain.gain.exponentialRampToValueAtTime(0.01, currentTime + sound.duration);
+            
+            // 创建白噪声
+            const bufferSize = 2 * this.audioContext.sampleRate;
+            const noiseBuffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+            const output = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                output[i] = Math.random() * 2 - 1;
+            }
+            
+            const noise = this.audioContext.createBufferSource();
+            noise.buffer = noiseBuffer;
+            noise.connect(noiseGain);
+            noiseGain.connect(this.audioContext.destination);
+            noise.start(currentTime);
+        }
+        
+        if (sound.alternating) {
+            // 警报音效的交替音高
+            oscillator.frequency.setValueAtTime(sound.frequency, currentTime);
+            oscillator.frequency.setValueAtTime(sound.frequency * 1.2, currentTime + 0.15);
+        }
         
         // 设置音量包络
-        gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
-        gainNode.gain.linearRampToValueAtTime(sound.volume, this.audioContext.currentTime + 0.01);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + sound.duration);
+        gainNode.gain.setValueAtTime(0, currentTime);
+        gainNode.gain.linearRampToValueAtTime(sound.volume, currentTime + 0.01);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, currentTime + sound.duration);
         
         // 连接音频节点
         oscillator.connect(gainNode);
         gainNode.connect(this.audioContext.destination);
         
         // 播放音效
-        oscillator.start();
-        oscillator.stop(this.audioContext.currentTime + sound.duration);
+        oscillator.start(currentTime);
+        oscillator.stop(currentTime + sound.duration);
     }
     
     // 射击方法
@@ -428,7 +495,7 @@ class SpaceGame {
         this.ctx.closePath();
         this.ctx.fill();
 
-        // 机械细节线条
+        // 机械细节线��
         this.ctx.strokeStyle = '#00FFFF'; // 青色线条
         this.ctx.lineWidth = 2;
         
