@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>星际以太 - 区块链太空游戏</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/x-icon" href="https://cdn.jsdelivr.net/gh/MetaMask/brand-resources@master/SVG/metamask-fox.svg">
+</head>
+<body>
+    <div id="game-container">
+        <div id="hud">
+            <button id="connect-wallet" class="wallet-button">
+                <img src="https://cdn.jsdelivr.net/gh/MetaMask/brand-resources@master/SVG/metamask-fox.svg" alt="MetaMask">
+                连接钱包
+            </button>
+            <div id="wallet-info">钱包: <span id="wallet-address">未连接</span></div>
+            <div id="ship-info">飞船: <span id="ship-name">未创建</span></div>
+        </div>
+        <canvas id="game-canvas"></canvas>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.5.2/dist/web3.min.js"></script>
+    <script src="./src/web3Handler.js"></script>
+    <script src="./src/game.js"></script>
+
+    <script>
+        window.addEventListener('load', async () => {
+            if (typeof window.ethereum !== 'undefined') {
+                console.log('MetaMask is installed!');
+                
+                window.web3Handler = new Web3Handler();
+                
+                const accounts = await ethereum.request({ method: 'eth_accounts' });
+                if (accounts.length > 0) {
+                    console.log('Already connected:', accounts[0]);
+                    web3Handler.connect();
+                }
+            } else {
+                console.log('Please install MetaMask!');
+                alert('请安装MetaMask插件！');
+            }
+        });
+    </script>
+</body>
+</html> 

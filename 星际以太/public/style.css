@@ -1,0 +1,67 @@
+body {
+    margin: 0;
+    overflow: hidden;
+    background: #000;
+}
+
+#game-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+}
+
+#hud {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    color: #fff;
+    font-family: Arial, sans-serif;
+    z-index: 100;
+}
+
+#wallet-info, #ship-info {
+    background: rgba(0, 0, 0, 0.7);
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
+
+#game-canvas {
+    width: 100%;
+    height: 100%;
+}
+
+.wallet-button {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: #FF9C27;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.3s;
+    z-index: 100;
+}
+
+.wallet-button img {
+    width: 24px;
+    height: 24px;
+}
+
+.wallet-button:hover {
+    background: #F57C00;
+}
+
+.wallet-button:active {
+    transform: scale(0.98);
+}
+
+#wallet-info {
+    margin-top: 70px;
+} 
