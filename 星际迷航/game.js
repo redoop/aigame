@@ -58,17 +58,33 @@ class SpaceGame {
     handleTouchStart(e) {
         e.preventDefault();
         const touch = e.touches[0];
-        this.touchStartX = touch.clientX;
-        this.touchStartY = touch.clientY;
+        const rect = this.canvas.getBoundingClientRect();
         
-        // 开始持续射击
+        // 记录初始触摸位置
+        this.touchStartX = touch.clientX - rect.left;
+        this.touchStartY = touch.clientY - rect.top;
+        
+        // 设置飞船初始位置为触摸位置
+        this.ship.x = this.touchStartX;
+        this.ship.y = this.touchStartY;
+        
+        // 开始射击
         this.isShooting = true;
         this.shoot();
-        this.shootInterval = setInterval(() => {
-            if (this.isShooting) {
-                this.shoot();
-            }
-        }, 200); // 每200ms射击一次
+        
+        // 设置连续射击
+        if (!this.shootInterval) {
+            this.shootInterval = setInterval(() => {
+                if (this.isShooting) {
+                    this.shoot();
+                }
+            }, 200);
+        }
+        
+        // 初始化音频（如果还未初始化）
+        if (this.audioContext && this.audioContext.state === 'suspended') {
+            this.audioContext.resume();
+        }
     }
     
     // 处理触摸移动
@@ -77,23 +93,32 @@ class SpaceGame {
         if (!this.touchStartX || !this.touchStartY) return;
         
         const touch = e.touches[0];
-        const deltaX = touch.clientX - this.touchStartX;
-        const deltaY = touch.clientY - this.touchStartY;
+        const rect = this.canvas.getBoundingClientRect();
         
-        // 移动飞船
-        this.ship.x += deltaX * 0.1;
-        this.ship.y += deltaY * 0.1;
+        // 计算当前触摸位置
+        const currentX = touch.clientX - rect.left;
+        const currentY = touch.clientY - rect.top;
+        
+        // 计算移动距离
+        const deltaX = currentX - this.touchStartX;
+        const deltaY = currentY - this.touchStartY;
+        
+        // 更新飞船位置
+        this.ship.x += deltaX * 0.5;
+        this.ship.y += deltaY * 0.5;
         
         // 限制飞船在画布范围内
         this.ship.x = Math.max(30, Math.min(this.canvas.width - 30, this.ship.x));
         this.ship.y = Math.max(30, Math.min(this.canvas.height - 30, this.ship.y));
         
         // 更新触摸位置
-        this.touchStartX = touch.clientX;
-        this.touchStartY = touch.clientY;
+        this.touchStartX = currentX;
+        this.touchStartY = currentY;
         
-        // 移动时播放引擎音效
-        this.playSound('engine');
+        // 播放引擎音效
+        if (Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1) {
+            this.playSound('engine');
+        }
     }
     
     // 处理触摸结束
@@ -193,97 +218,58 @@ class SpaceGame {
     playSound(type) {
         if (!this.audioContext || !this.sounds[type]) return;
         
-        const sound = this.sounds[type];
-        const currentTime = this.audioContext.currentTime;
-        
-        // 创建音频节点
-        const oscillator = this.audioContext.createOscillator();
-        const gainNode = this.audioContext.createGain();
-        
-        // 设置基本参数
-        oscillator.type = sound.type;
-        oscillator.frequency.setValueAtTime(sound.frequency, currentTime);
-        
-        // 添加特殊音效处理
-        if (sound.sweep) {
-            // 相位枪射击音效的频率扫描
-            oscillator.frequency.exponentialRampToValueAtTime(
-                sound.frequency * 0.5,
-                currentTime + sound.duration
-            );
-        }
-        
-        if (sound.modulation) {
-            // 曲速引擎的调制效果
-            const modulator = this.audioContext.createOscillator();
-            const modulatorGain = this.audioContext.createGain();
-            
-            modulator.frequency.value = 30;
-            modulatorGain.gain.value = 20;
-            
-            modulator.connect(modulatorGain);
-            modulatorGain.connect(oscillator.frequency);
-            modulator.start(currentTime);
-            modulator.stop(currentTime + sound.duration);
-        }
-        
-        if (sound.noise) {
-            // 爆炸音效的噪声处理
-            const noiseGain = this.audioContext.createGain();
-            noiseGain.gain.setValueAtTime(sound.volume, currentTime);
-            noiseGain.gain.exponentialRampToValueAtTime(0.01, currentTime + sound.duration);
-            
-            // 创建白噪声
-            const bufferSize = 2 * this.audioContext.sampleRate;
-            const noiseBuffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
-            const output = noiseBuffer.getChannelData(0);
-            for (let i = 0; i < bufferSize; i++) {
-                output[i] = Math.random() * 2 - 1;
+        try {
+            // 如果音频上下文被暂停，则恢复
+            if (this.audioContext.state === 'suspended') {
+                this.audioContext.resume();
             }
             
-            const noise = this.audioContext.createBufferSource();
-            noise.buffer = noiseBuffer;
-            noise.connect(noiseGain);
-            noiseGain.connect(this.audioContext.destination);
-            noise.start(currentTime);
-        }
-        
-        if (sound.alternating) {
-            // 警报音效的交替音高
+            const sound = this.sounds[type];
+            const currentTime = this.audioContext.currentTime;
+            
+            // 创建音频节点
+            const oscillator = this.audioContext.createOscillator();
+            const gainNode = this.audioContext.createGain();
+            
+            // 设置音频参数
+            oscillator.type = sound.type;
             oscillator.frequency.setValueAtTime(sound.frequency, currentTime);
-            oscillator.frequency.setValueAtTime(sound.frequency * 1.2, currentTime + 0.15);
+            
+            // 设置音量
+            gainNode.gain.setValueAtTime(0, currentTime);
+            gainNode.gain.linearRampToValueAtTime(sound.volume, currentTime + 0.01);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, currentTime + sound.duration);
+            
+            // 连接节点
+            oscillator.connect(gainNode);
+            gainNode.connect(this.audioContext.destination);
+            
+            // 播放音效
+            oscillator.start(currentTime);
+            oscillator.stop(currentTime + sound.duration);
+        } catch (error) {
+            console.warn('播放音效失败:', error);
         }
-        
-        // 设置音量包络
-        gainNode.gain.setValueAtTime(0, currentTime);
-        gainNode.gain.linearRampToValueAtTime(sound.volume, currentTime + 0.01);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, currentTime + sound.duration);
-        
-        // 连接音频节点
-        oscillator.connect(gainNode);
-        gainNode.connect(this.audioContext.destination);
-        
-        // 播放音效
-        oscillator.start(currentTime);
-        oscillator.stop(currentTime + sound.duration);
     }
     
     // 射击方法
     shoot() {
-        const bulletSpeed = 10;
+        if (!this.bullets) this.bullets = [];
+        
         // 从飞船两侧发射子弹
         this.bullets.push({
             x: this.ship.x - 15,
-            y: this.ship.y,
+            y: this.ship.y - 10,
             size: 4,
-            speed: bulletSpeed,
+            speed: 10,
             color: '#00ffff'
         });
+        
         this.bullets.push({
             x: this.ship.x + 15,
-            y: this.ship.y,
+            y: this.ship.y - 10,
             size: 4,
-            speed: bulletSpeed,
+            speed: 10,
             color: '#00ffff'
         });
         
@@ -495,7 +481,7 @@ class SpaceGame {
         this.ctx.closePath();
         this.ctx.fill();
 
-        // 机械细节线��
+        // 机械细节线
         this.ctx.strokeStyle = '#00FFFF'; // 青色线条
         this.ctx.lineWidth = 2;
         
