@@ -159,4 +159,67 @@ h1 {
     background: rgba(0, 0, 0, 0.5);
     border-radius: 5px;
     border: 1px solid #0066cc;
+}
+
+.mobile-controls {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 20px;
+}
+
+.horizontal-controls {
+    display: flex;
+    gap: 50px;
+    margin: 10px 0;
+}
+
+.mobile-controls button {
+    width: 60px;
+    height: 60px;
+    background: rgba(0, 102, 204, 0.3);
+    border: 2px solid #0066cc;
+    border-radius: 50%;
+    color: #00ffff;
+    font-size: 24px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.mobile-controls button:active {
+    background: rgba(0, 102, 204, 0.6);
+    transform: scale(0.95);
+}
+
+/* 移动端样式调整 */
+@media (max-width: 768px) {
+    .cell {
+        width: 30px;
+        height: 30px;
+    }
+
+    .mobile-controls {
+        display: flex;
+    }
+
+    .game-info {
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .star::after {
+        font-size: 18px;
+    }
+
+    h1 {
+        font-size: 2em;
+    }
+}
+
+@media (max-width: 480px) {
+    .cell {
+        width: 25px;
+        height: 25px;
+    }
 } 

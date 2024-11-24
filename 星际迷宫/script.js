@@ -10,6 +10,12 @@ class MazeGame {
         this.starsCollected = 0;
         this.gameOver = false;
         
+        // 检测是否为移动设备
+        this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        if (this.isMobile) {
+            document.querySelector('.instructions').textContent = '点击屏幕按钮移动飞船';
+        }
+        
         this.generateNewMaze();
         this.startEnemyMovement();
         this.initSounds();
@@ -175,6 +181,7 @@ class MazeGame {
     }
 
     setupControls() {
+        // 键盘控制
         document.addEventListener('keydown', (e) => {
             if (this.gameOver) return;
             
@@ -190,6 +197,33 @@ class MazeGame {
             }
 
             this.movePlayer(newX, newY);
+        });
+
+        // 触摸按钮控制
+        const buttons = {
+            'up-btn': { dx: 0, dy: -1 },
+            'down-btn': { dx: 0, dy: 1 },
+            'left-btn': { dx: -1, dy: 0 },
+            'right-btn': { dx: 1, dy: 0 }
+        };
+
+        Object.entries(buttons).forEach(([id, movement]) => {
+            const button = document.getElementById(id);
+            if (button) {
+                const moveHandler = () => {
+                    if (this.gameOver) return;
+                    const newX = this.playerPos.x + movement.dx;
+                    const newY = this.playerPos.y + movement.dy;
+                    this.movePlayer(newX, newY);
+                };
+
+                // 添加触摸和点击事件
+                button.addEventListener('touchstart', moveHandler);
+                button.addEventListener('click', moveHandler);
+                
+                // 防止触摸按钮时页面滚动
+                button.addEventListener('touchstart', (e) => e.preventDefault());
+            }
         });
     }
 
