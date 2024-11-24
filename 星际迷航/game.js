@@ -101,6 +101,21 @@ class SpaceGame {
         
         // 开始游戏循环
         this.gameLoop();
+        
+        // 添加虚拟按钮状态
+        this.virtualButtons = {
+            up: false,
+            down: false,
+            left: false,
+            right: false,
+            shoot: false
+        };
+        
+        // 设置按钮事件监听
+        this.setupVirtualButtons();
+        
+        // 修改射击间隔
+        this.shootInterval = null;
     }
     
     // 生成星星
@@ -201,6 +216,22 @@ class SpaceGame {
     
     // 更新游戏状态
     update() {
+        // 处理虚拟按钮移动
+        const moveSpeed = this.ship.speed * this.gameScale;
+        
+        if (this.virtualButtons.left && this.ship.x > this.ship.size) {
+            this.ship.x -= moveSpeed;
+        }
+        if (this.virtualButtons.right && this.ship.x < this.canvas.width - this.ship.size) {
+            this.ship.x += moveSpeed;
+        }
+        if (this.virtualButtons.up && this.ship.y > this.canvas.height * 0.2) {
+            this.ship.y -= moveSpeed;
+        }
+        if (this.virtualButtons.down && this.ship.y < this.canvas.height * 0.9) {
+            this.ship.y += moveSpeed;
+        }
+        
         // 更新子弹
         for (let i = this.bullets.length - 1; i >= 0; i--) {
             this.bullets[i].y -= this.bullets[i].speed;
@@ -322,7 +353,7 @@ class SpaceGame {
         this.ctx.beginPath();
         this.ctx.moveTo(0, -30);         // 顶部尖端
         this.ctx.lineTo(-20, -10);       // 左上
-        this.ctx.lineTo(-15, 10);        // 左中
+        this.ctx.lineTo(-15, 10);        // 左���
         this.ctx.lineTo(-25, 30);        // 左下
         this.ctx.lineTo(25, 30);         // 右下
         this.ctx.lineTo(15, 10);         // 右中
@@ -446,7 +477,7 @@ class SpaceGame {
         this.playSound('enemyShoot');
     }
 
-    // 添加敌机更新方法
+    // ��加敌机更新方法
     updateEnemies() {
         this.enemies.forEach((enemy, index) => {
             // 敌机移动
@@ -508,7 +539,7 @@ class SpaceGame {
         }
     }
 
-    // 添加敌机绘制方法
+    // 添加���机绘制方法
     drawEnemy(enemy) {
         this.ctx.save();
         this.ctx.translate(enemy.x, enemy.y);
@@ -560,6 +591,12 @@ class SpaceGame {
     }
 
     handleTouchMove(e) {
+        // 如果正在使用虚拟按钮，则不处理触摸移动
+        if (this.virtualButtons.up || this.virtualButtons.down || 
+            this.virtualButtons.left || this.virtualButtons.right) {
+            return;
+        }
+        
         e.preventDefault();
         if (!this.touchStartX || !this.touchStartY) return;
         
@@ -616,5 +653,63 @@ class SpaceGame {
         // 基于屏幕尺寸计算缩放比例
         const baseWidth = 800; // 基准宽度
         return Math.min(this.canvas.width / baseWidth, 1);
+    }
+
+    // 添加虚拟按钮设置方法
+    setupVirtualButtons() {
+        // 方向按钮
+        ['Up', 'Down', 'Left', 'Right'].forEach(direction => {
+            const btn = document.getElementById(`btn${direction}`);
+            if (btn) {
+                // 触摸开始
+                btn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    this.virtualButtons[direction.toLowerCase()] = true;
+                });
+                
+                // 触摸结束
+                btn.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    this.virtualButtons[direction.toLowerCase()] = false;
+                });
+                
+                // 触摸取消
+                btn.addEventListener('touchcancel', (e) => {
+                    e.preventDefault();
+                    this.virtualButtons[direction.toLowerCase()] = false;
+                });
+            }
+        });
+        
+        // 射击按钮
+        const shootBtn = document.getElementById('btnShoot');
+        if (shootBtn) {
+            shootBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                this.virtualButtons.shoot = true;
+                if (!this.shootInterval) {
+                    this.shoot();
+                    this.shootInterval = setInterval(() => this.shoot(), 200);
+                }
+            });
+            
+            shootBtn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                this.virtualButtons.shoot = false;
+                if (this.shootInterval) {
+                    clearInterval(this.shootInterval);
+                    this.shootInterval = null;
+                }
+            });
+            
+            shootBtn.addEventListener('touchcancel', (e) => {
+                e.preventDefault();
+                this.virtualButtons.shoot = false;
+                if (this.shootInterval) {
+                    clearInterval(this.shootInterval);
+                    this.shootInterval = null;
+                }
+            });
+        }
     }
 } 
