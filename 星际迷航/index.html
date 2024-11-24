@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>星际迷航 - 昆仑巢</title>
+    <style>
+        canvas {
+            border: 1px solid #000;
+            display: block;
+            margin: 20px auto;
+        }
+        body {
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .game-title {
+            color: #4169E1;
+            font-size: 48px;
+            font-family: 'Arial', sans-serif;
+            text-shadow: 0 0 10px #00ffff,
+                         0 0 20px #00ffff,
+                         0 0 30px #00ffff;
+            margin-bottom: 20px;
+            text-align: center;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+        
+        @keyframes glow {
+            from {
+                text-shadow: 0 0 10px #00ffff,
+                            0 0 20px #00ffff,
+                            0 0 30px #00ffff;
+            }
+            to {
+                text-shadow: 0 0 20px #00ffff,
+                            0 0 30px #00ffff,
+                            0 0 40px #00ffff;
+            }
+        }
+        
+        button {
+            background: #4169E1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        
+        button:hover {
+            background: #00ffff;
+        }
+        
+        h2 {
+            color: #00ffff;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-title">星际迷航：昆仑巢</div>
+    <canvas id="gameCanvas"></canvas>
+    <script src="game.js"></script>
+    <script>
+        // 简单的初始化逻辑
+        window.addEventListener('load', function() {
+            window.game = new SpaceGame();
+            
+            // 初始化音频（需要用户交互）
+            document.addEventListener('click', function startGame() {
+                if (window.game.audioContext) {
+                    window.game.audioContext.resume();
+                    document.removeEventListener('click', startGame);
+                }
+            }, { once: true });
+        });
+    </script>
+</body>
+</html> 
