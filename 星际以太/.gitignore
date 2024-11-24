@@ -28,3 +28,7 @@ src/contractInfo.json
 # OS
 .DS_Store
 Thumbs.db 
+
+# 不忽略 images 目录
+!public/images/
+!public/images/* 

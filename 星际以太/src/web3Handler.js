@@ -70,7 +70,7 @@ class Web3Handler {
         
         if (connectButton && walletAddress) {
             connectButton.innerHTML = `
-                <img src="https://cdn.jsdelivr.net/gh/MetaMask/brand-resources@master/SVG/metamask-fox.svg" alt="MetaMask">
+                <img src="./images/metamask.svg" alt="MetaMask">
                 已连接
             `;
             connectButton.style.background = '#4CAF50';
@@ -84,7 +84,7 @@ class Web3Handler {
             const connectButton = document.getElementById('connect-wallet');
             if (connectButton) {
                 connectButton.innerHTML = `
-                    <img src="https://cdn.jsdelivr.net/gh/MetaMask/brand-resources@master/SVG/metamask-fox.svg" alt="MetaMask">
+                    <img src="./images/metamask.svg" alt="MetaMask">
                     连接钱包
                 `;
                 connectButton.style.background = '#FF9C27';
