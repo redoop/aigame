@@ -4,308 +4,286 @@ class SpaceGame {
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
         
-        // 设置画布大小为设备屏幕大小
-        this.resizeCanvas();
-        window.addEventListener('resize', () => this.resizeCanvas());
+        // 设置画布尺寸为屏幕大小
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
         
-        // 初始化飞船 - 位置改为底部20%处
+        // 初始化游戏对象
         this.ship = {
             x: this.canvas.width / 2,
             y: this.canvas.height * 0.8,
+            size: 20,
             speed: 5,
-            score: 0,
-            size: this.calculateGameScale() * 30 // 飞船大小根据屏幕缩放
+            score: 0
         };
         
-        // 初始化游戏对象
-        this.stars = [];
-        this.meteors = [];
         this.bullets = [];
-        
-        // 初始化控制
-        this.keys = {};
-        this.touchStartX = null;
-        this.touchStartY = null;
-        this.isShooting = false;
-        
-        // 移除键盘事件监听
-        // 添加触摸事件监听
-        this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
-        this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e));
-        this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e));
-        
-        // 添加自动射击
-        setInterval(() => {
-            if (this.isShooting) {
-                this.shoot();
-            }
-        }, 500); // 每500ms射击一次
-        
-        // 生成初始星星和陨石
-        this.generateStars();
-        this.generateMeteors(5);
-        
-        // 添加音频上下文
-        try {
-            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        } catch (error) {
-            console.warn('无法创建音频上下文:', error);
-            this.audioContext = null;
-        }
-        
-        // 添加生日歌音符数据
-        this.birthdaySong = [
-            { note: 'C4', duration: 0.75, frequency: 262 },  // 祝
-            { note: 'C4', duration: 0.25, frequency: 262 },  // 你
-            { note: 'D4', duration: 1.0, frequency: 294 },   // 生
-            { note: 'C4', duration: 1.0, frequency: 262 },   // 日
-            { note: 'F4', duration: 1.0, frequency: 349 },   // 快
-            { note: 'E4', duration: 2.0, frequency: 330 },   // 乐
-            
-            { note: 'C4', duration: 0.75, frequency: 262 },  // 祝
-            { note: 'C4', duration: 0.25, frequency: 262 },  // 你
-            { note: 'D4', duration: 1.0, frequency: 294 },   // 生
-            { note: 'C4', duration: 1.0, frequency: 262 },   // 日
-            { note: 'G4', duration: 1.0, frequency: 392 },   // 快
-            { note: 'F4', duration: 2.0, frequency: 349 },   // 乐
-            
-            { note: 'C4', duration: 0.75, frequency: 262 },  // 
-            { note: 'C4', duration: 0.25, frequency: 262 },  // 你
-            { note: 'C5', duration: 1.0, frequency: 523 },   // 生
-            { note: 'A4', duration: 1.0, frequency: 440 },   // 日
-            { note: 'F4', duration: 1.0, frequency: 349 },   // 快
-            { note: 'E4', duration: 1.0, frequency: 330 },   // 乐
-            { note: 'D4', duration: 2.0, frequency: 294 },   // 啊
-            
-            { note: 'Bb4', duration: 0.75, frequency: 466 }, // 祝
-            { note: 'Bb4', duration: 0.25, frequency: 466 }, // 你
-            { note: 'A4', duration: 1.0, frequency: 440 },   // 生
-            { note: 'F4', duration: 1.0, frequency: 349 },   // 日
-            { note: 'G4', duration: 1.0, frequency: 392 },   // 快
-            { note: 'F4', duration: 2.0, frequency: 349 }    // 乐
-        ];
-
-        // 添加播放按钮监听
-        window.addEventListener('keydown', (e) => {
-            if (e.code === 'KeyB') {  // 按B键播放生日歌
-                this.playBirthdaySong();
-            }
-        });
-        
-        // 添加敌对飞船数组
         this.enemies = [];
-        this.enemyBullets = [];
         
-        // 生成初始敌机
-        this.generateEnemies(3);  // 生成3个敌机
-        
-        // 开始游戏循环
-        this.gameLoop();
-        
-        // 添加虚拟按钮状态
-        this.virtualButtons = {
-            up: false,
-            down: false,
+        // 初始化控制状态
+        this.controls = {
             left: false,
             right: false,
+            up: false,
+            down: false,
             shoot: false
         };
         
-        // 设置按钮事件监听
-        this.setupVirtualButtons();
+        // 设置按钮控制
+        this.setupControls();
         
-        // 修改射击间隔
-        this.shootInterval = null;
+        // 生成初始敌人
+        this.generateEnemies();
+        
+        // 添加爆炸效果数组
+        this.explosions = [];
+        this.meteors = [];
+        
+        // 生成初始陨石
+        this.generateMeteors(5);
+        
+        // 开始游戏循环
+        this.gameLoop();
     }
     
-    // 生成星星
-    generateStars() {
-        for (let i = 0; i < 50; i++) {
-            this.stars.push({
-                x: Math.random() * this.canvas.width,
-                y: Math.random() * this.canvas.height,
-                size: Math.random() * 2 + 1,
-                color: '#ffffff'
-            });
-        }
-    }
-    
-    // 生成陨石
-    generateMeteors(count) {
-        const meteorSize = this.gameScale * 20; // 陨石大小根据屏幕缩放
-        for (let i = 0; i < count; i++) {
-            this.meteors.push({
-                x: Math.random() * this.canvas.width,
-                y: -meteorSize,
-                size: meteorSize + Math.random() * (meteorSize),
-                speed: (Math.random() * 2 + 1) * this.gameScale,
-                color: '#FF6B6B'
-            });
-        }
-    }
-    
-    // 射击
-    shoot() {
-        const bulletSize = this.gameScale * 5; // 子弹大小根据屏幕缩放
-        this.bullets.push({
-            x: this.ship.x,
-            y: this.ship.y,
-            speed: 10 * this.gameScale,
-            size: bulletSize,
-            color: '#00ff00'
+    // 设置控制
+    setupControls() {
+        // 方向按钮
+        ['Up', 'Down', 'Left', 'Right'].forEach(dir => {
+            const btn = document.getElementById(`btn${dir}`);
+            if (btn) {
+                btn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    this.controls[dir.toLowerCase()] = true;
+                });
+                btn.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    this.controls[dir.toLowerCase()] = false;
+                });
+            }
         });
         
-        this.playSound('shoot');
+        // 射击按钮
+        const shootBtn = document.getElementById('btnShoot');
+        if (shootBtn) {
+            shootBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                this.shoot();
+            });
+        }
     }
     
-    // 添加音效播放方法
-    playSound(type) {
-        if (!this.audioContext) return;
-
-        const oscillator = this.audioContext.createOscillator();
-        const gainNode = this.audioContext.createGain();
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(this.audioContext.destination);
-
-        switch(type) {
-            case 'shoot':
-                // 射击音效 - 高音短促
-                oscillator.frequency.value = 880;
-                oscillator.type = 'square';
-                gainNode.gain.value = 0.1;
-                oscillator.start();
-                oscillator.stop(this.audioContext.currentTime + 0.1);
-                break;
-
-            case 'explosion':
-                // 爆炸音效 - 低音噪声
-                oscillator.frequency.value = 100;
-                oscillator.type = 'sawtooth';
-                gainNode.gain.value = 0.2;
-                oscillator.start();
-                oscillator.stop(this.audioContext.currentTime + 0.3);
-                break;
-
-            case 'engine':
-                // 引擎音效 - 持续的低沉声音
-                oscillator.frequency.value = 50;
-                oscillator.type = 'sine';
-                gainNode.gain.value = 0.05;
-                oscillator.start();
-                oscillator.stop(this.audioContext.currentTime + 0.1);
-                break;
-
-            case 'enemyShoot':
-                oscillator.frequency.value = 440;
-                oscillator.type = 'square';
-                gainNode.gain.value = 0.08;
-                oscillator.start();
-                oscillator.stop(this.audioContext.currentTime + 0.1);
-                break;
-
-            case 'hit':
-                oscillator.frequency.value = 150;
-                oscillator.type = 'sawtooth';
-                gainNode.gain.value = 0.15;
-                oscillator.start();
-                oscillator.stop(this.audioContext.currentTime + 0.2);
-                break;
+    // 生成敌人
+    generateEnemies() {
+        for (let i = 0; i < 5; i++) {
+            this.enemies.push({
+                x: Math.random() * (this.canvas.width - 40) + 20,
+                y: Math.random() * (this.canvas.height * 0.5),
+                size: 20,
+                speed: 2
+            });
+        }
+    }
+    
+    // 添加陨石生成方法
+    generateMeteors(count) {
+        for (let i = 0; i < count; i++) {
+            this.meteors.push({
+                x: Math.random() * (this.canvas.width - 40) + 20,
+                y: -20,
+                size: 20 + Math.random() * 20,
+                speed: 2 + Math.random() * 2,
+                rotation: Math.random() * Math.PI * 2
+            });
+        }
+    }
+    
+    // 射击方法
+    shoot() {
+        const bulletSpeed = 10;
+        // 从飞船两侧发射子弹
+        this.bullets.push({
+            x: this.ship.x - 15,
+            y: this.ship.y,
+            size: 4,
+            speed: bulletSpeed,
+            color: '#00ffff'
+        });
+        this.bullets.push({
+            x: this.ship.x + 15,
+            y: this.ship.y,
+            size: 4,
+            speed: bulletSpeed,
+            color: '#00ffff'
+        });
+    }
+    
+    // 添加爆炸效果方法
+    createExplosion(x, y, size) {
+        const particleCount = 15;
+        for (let i = 0; i < particleCount; i++) {
+            const angle = (Math.PI * 2 / particleCount) * i;
+            const speed = 2 + Math.random() * 2;
+            this.explosions.push({
+                x: x,
+                y: y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                size: 2 + Math.random() * 2,
+                life: 1.0,
+                color: `hsl(${Math.random() * 30 + 15}, 100%, 50%)`  // 橙色到红色的随机色
+            });
         }
     }
     
     // 更新游戏状态
     update() {
-        // 处理虚拟按钮移动
-        const moveSpeed = this.ship.speed * this.gameScale;
+        // 更新飞船位置
+        if (this.controls.left) this.ship.x -= this.ship.speed;
+        if (this.controls.right) this.ship.x += this.ship.speed;
+        if (this.controls.up) this.ship.y -= this.ship.speed;
+        if (this.controls.down) this.ship.y += this.ship.speed;
         
-        if (this.virtualButtons.left && this.ship.x > this.ship.size) {
-            this.ship.x -= moveSpeed;
-        }
-        if (this.virtualButtons.right && this.ship.x < this.canvas.width - this.ship.size) {
-            this.ship.x += moveSpeed;
-        }
-        if (this.virtualButtons.up && this.ship.y > this.canvas.height * 0.2) {
-            this.ship.y -= moveSpeed;
-        }
-        if (this.virtualButtons.down && this.ship.y < this.canvas.height * 0.9) {
-            this.ship.y += moveSpeed;
-        }
+        // 限制飞船在画布内
+        this.ship.x = Math.max(20, Math.min(this.canvas.width - 20, this.ship.x));
+        this.ship.y = Math.max(20, Math.min(this.canvas.height - 20, this.ship.y));
         
         // 更新子弹
         for (let i = this.bullets.length - 1; i >= 0; i--) {
             this.bullets[i].y -= this.bullets[i].speed;
+            
+            // 移除出界的子弹
             if (this.bullets[i].y < 0) {
                 this.bullets.splice(i, 1);
+                continue;
             }
+            
+            // 检测子弹击中敌人
+            for (let j = this.enemies.length - 1; j >= 0; j--) {
+                const dx = this.bullets[i]?.x - this.enemies[j].x;
+                const dy = this.bullets[i]?.y - this.enemies[j].y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < this.enemies[j].size + this.bullets[i]?.size) {
+                    this.enemies.splice(j, 1);
+                    this.bullets.splice(i, 1);
+                    this.ship.score += 10;
+                    break;
+                }
+            }
+        }
+        
+        // 更新敌人
+        this.enemies.forEach(enemy => {
+            enemy.y += enemy.speed;
+            if (enemy.y > this.canvas.height) {
+                enemy.y = -20;
+                enemy.x = Math.random() * (this.canvas.width - 40) + 20;
+            }
+        });
+        
+        // 如果敌人数量少于5，生成新的敌人
+        if (this.enemies.length < 5) {
+            this.generateEnemies();
         }
         
         // 更新陨石
         for (let i = this.meteors.length - 1; i >= 0; i--) {
-            let meteor = this.meteors[i];
+            const meteor = this.meteors[i];
             meteor.y += meteor.speed;
+            meteor.rotation += 0.02;
             
-            // 检查子弹碰撞
-            for (let j = this.bullets.length - 1; j >= 0; j--) {
-                let bullet = this.bullets[j];
-                let dx = meteor.x - bullet.x;
-                let dy = meteor.y - bullet.y;
-                let distance = Math.sqrt(dx * dx + dy * dy);
-                
-                if (distance < meteor.size + bullet.size) {
-                    this.meteors.splice(i, 1);
-                    this.bullets.splice(j, 1);
-                    this.ship.score += 10;
-                    this.generateMeteors(1);
-                    // 播放爆炸音效
-                    this.playSound('explosion');
-                    break;
-                }
-            }
-            
+            // 检查陨石是否超出屏幕
             if (meteor.y > this.canvas.height + meteor.size) {
                 this.meteors.splice(i, 1);
                 this.generateMeteors(1);
+                continue;
+            }
+            
+            // 检查子弹碰撞
+            for (let j = this.bullets.length - 1; j >= 0; j--) {
+                const bullet = this.bullets[j];
+                const dx = bullet.x - meteor.x;
+                const dy = bullet.y - meteor.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < meteor.size + bullet.size) {
+                    // 创建爆炸效果
+                    this.createExplosion(meteor.x, meteor.y, meteor.size);
+                    // 移除陨石和子弹
+                    this.meteors.splice(i, 1);
+                    this.bullets.splice(j, 1);
+                    // 增加分数
+                    this.ship.score += 10;
+                    // 生成新的陨石
+                    this.generateMeteors(1);
+                    break;
+                }
             }
         }
         
-        // 更新星星
-        this.stars.forEach(star => {
-            star.y += 1;
-            if (star.y > this.canvas.height) {
-                star.y = 0;
-                star.x = Math.random() * this.canvas.width;
+        // 更新爆炸效果
+        for (let i = this.explosions.length - 1; i >= 0; i--) {
+            const explosion = this.explosions[i];
+            explosion.x += explosion.vx;
+            explosion.y += explosion.vy;
+            explosion.life -= 0.02;
+            
+            if (explosion.life <= 0) {
+                this.explosions.splice(i, 1);
             }
-        });
-        
-        // 修改引擎音效触发条件
-        if (this.touchStartX !== null || this.touchStartY !== null) {
-            this.playSound('engine');
         }
-        
-        // 更新敌机
-        this.updateEnemies();
-        
-        // 更新敌机子弹
-        this.updateEnemyBullets();
     }
     
     // 绘制游戏画面
     draw() {
         // 清空画布
-        this.ctx.fillStyle = '#000';
+        this.ctx.fillStyle = '#000000';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // 绘制星星
-        this.stars.forEach(star => {
-            this.ctx.fillStyle = star.color;
+        // 绘制变形金刚风格的飞船
+        this.drawTransformerShip();
+        
+        // 绘制陨石
+        this.meteors.forEach(meteor => {
+            this.ctx.save();
+            this.ctx.translate(meteor.x, meteor.y);
+            this.ctx.rotate(meteor.rotation);
+            
+            // 绘制不规则的陨石形状
+            this.ctx.fillStyle = '#8B4513';
             this.ctx.beginPath();
-            this.ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+            for (let i = 0; i < 8; i++) {
+                const angle = (Math.PI * 2 / 8) * i;
+                const radius = meteor.size * (0.8 + Math.sin(i * 1.5) * 0.2);
+                const x = Math.cos(angle) * radius;
+                const y = Math.sin(angle) * radius;
+                if (i === 0) {
+                    this.ctx.moveTo(x, y);
+                } else {
+                    this.ctx.lineTo(x, y);
+                }
+            }
+            this.ctx.closePath();
             this.ctx.fill();
+            
+            // 添加陨石表面细节
+            this.ctx.strokeStyle = '#654321';
+            this.ctx.lineWidth = 2;
+            this.ctx.stroke();
+            
+            this.ctx.restore();
         });
         
-        // 绘制飞船
-        this.drawTransformerShip();
+        // 绘制爆炸效果
+        this.explosions.forEach(explosion => {
+            this.ctx.fillStyle = explosion.color;
+            this.ctx.globalAlpha = explosion.life;
+            this.ctx.beginPath();
+            this.ctx.arc(explosion.x, explosion.y, explosion.size, 0, Math.PI * 2);
+            this.ctx.fill();
+        });
+        this.ctx.globalAlpha = 1.0;
         
         // 绘制子弹
         this.bullets.forEach(bullet => {
@@ -313,34 +291,24 @@ class SpaceGame {
             this.ctx.beginPath();
             this.ctx.arc(bullet.x, bullet.y, bullet.size, 0, Math.PI * 2);
             this.ctx.fill();
-        });
-        
-        // 绘制陨石
-        this.meteors.forEach(meteor => {
-            this.ctx.fillStyle = meteor.color;
+            
+            // 添加子弹光晕效果
             this.ctx.beginPath();
-            this.ctx.arc(meteor.x, meteor.y, meteor.size, 0, Math.PI * 2);
+            this.ctx.arc(bullet.x, bullet.y, bullet.size * 2, 0, Math.PI * 2);
+            const gradient = this.ctx.createRadialGradient(
+                bullet.x, bullet.y, bullet.size,
+                bullet.x, bullet.y, bullet.size * 2
+            );
+            gradient.addColorStop(0, 'rgba(0, 255, 255, 0.3)');
+            gradient.addColorStop(1, 'rgba(0, 255, 255, 0)');
+            this.ctx.fillStyle = gradient;
             this.ctx.fill();
         });
         
-        // 绘制敌机
-        this.enemies.forEach(enemy => {
-            this.drawEnemy(enemy);
-        });
-
-        // 绘制敌机子弹
-        this.enemyBullets.forEach(bullet => {
-            this.ctx.fillStyle = bullet.color;
-            this.ctx.beginPath();
-            this.ctx.arc(bullet.x, bullet.y, bullet.size, 0, Math.PI * 2);
-            this.ctx.fill();
-        });
-        
-        // 调整分数显示大小和位置
-        const fontSize = Math.max(16, Math.floor(20 * this.gameScale));
-        this.ctx.fillStyle = '#FFF';
-        this.ctx.font = `${fontSize}px Arial`;
-        this.ctx.fillText(`分数: ${this.ship.score}`, 10, fontSize + 10);
+        // 绘制分数
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.font = '20px Arial';
+        this.ctx.fillText(`分数: ${this.ship.score}`, 10, 30);
     }
     
     // 添加变形金刚风格的飞船绘制方法
@@ -353,7 +321,7 @@ class SpaceGame {
         this.ctx.beginPath();
         this.ctx.moveTo(0, -30);         // 顶部尖端
         this.ctx.lineTo(-20, -10);       // 左上
-        this.ctx.lineTo(-15, 10);        // 左���
+        this.ctx.lineTo(-15, 10);        // 左中
         this.ctx.lineTo(-25, 30);        // 左下
         this.ctx.lineTo(25, 30);         // 右下
         this.ctx.lineTo(15, 10);         // 右中
@@ -416,300 +384,10 @@ class SpaceGame {
         this.ctx.restore();
     }
     
-    // 添加播放生日歌的方法
-    playBirthdaySong() {
-        if (!this.audioContext) return;
-        
-        let currentTime = this.audioContext.currentTime;
-        const tempo = 1.5; // 控制播放速度
-
-        this.birthdaySong.forEach((note) => {
-            const oscillator = this.audioContext.createOscillator();
-            const gainNode = this.audioContext.createGain();
-            
-            oscillator.connect(gainNode);
-            gainNode.connect(this.audioContext.destination);
-            
-            // 设置音色
-            oscillator.type = 'sine';
-            oscillator.frequency.value = note.frequency;
-            
-            // 设置音量包络
-            gainNode.gain.setValueAtTime(0, currentTime);
-            gainNode.gain.linearRampToValueAtTime(0.3, currentTime + 0.1);
-            gainNode.gain.linearRampToValueAtTime(0.2, currentTime + note.duration * tempo - 0.1);
-            gainNode.gain.linearRampToValueAtTime(0, currentTime + note.duration * tempo);
-            
-            // 播放音符
-            oscillator.start(currentTime);
-            oscillator.stop(currentTime + note.duration * tempo);
-            
-            currentTime += note.duration * tempo;
-        });
-    }
-    
-    // 添加生成敌机的方法
-    generateEnemies(count) {
-        const enemySize = this.gameScale * 30; // 敌机大小根据屏幕缩放
-        for (let i = 0; i < count; i++) {
-            this.enemies.push({
-                x: Math.random() * (this.canvas.width - enemySize * 2) + enemySize,
-                y: Math.random() * (this.canvas.height * 0.3) + enemySize,
-                width: enemySize,
-                height: enemySize,
-                speed: 2 * this.gameScale,
-                direction: Math.random() < 0.5 ? -1 : 1,
-                shootTimer: Math.random() * 100,
-                color: '#ff4444'
-            });
-        }
-    }
-
-    // 敌机射击方法
-    enemyShoot(enemy) {
-        this.enemyBullets.push({
-            x: enemy.x,
-            y: enemy.y + 20,
-            speed: 5,
-            size: 4,
-            color: '#ff0000'
-        });
-        this.playSound('enemyShoot');
-    }
-
-    // ��加敌机更新方法
-    updateEnemies() {
-        this.enemies.forEach((enemy, index) => {
-            // 敌机移动
-            enemy.x += enemy.speed * enemy.direction;
-            
-            // 碰到边界就改变方向
-            if (enemy.x <= 20 || enemy.x >= this.canvas.width - 20) {
-                enemy.direction *= -1;
-            }
-
-            // 随机射击
-            enemy.shootTimer--;
-            if (enemy.shootTimer <= 0) {
-                this.enemyShoot(enemy);
-                enemy.shootTimer = 100 + Math.random() * 50;  // 重置射击计时器
-            }
-
-            // 检查是否被玩家子弹击中
-            for (let i = this.bullets.length - 1; i >= 0; i--) {
-                let bullet = this.bullets[i];
-                let dx = enemy.x - bullet.x;
-                let dy = enemy.y - bullet.y;
-                let distance = Math.sqrt(dx * dx + dy * dy);
-
-                if (distance < 25) {  // 击中判定
-                    this.enemies.splice(index, 1);
-                    this.bullets.splice(i, 1);
-                    this.ship.score += 30;  // 击毁敌机得分
-                    this.playSound('explosion');
-                    this.generateEnemies(1);  // 生成新的敌机
-                    break;
-                }
-            }
-        });
-    }
-
-    // 添加敌机子弹更新方法
-    updateEnemyBullets() {
-        for (let i = this.enemyBullets.length - 1; i >= 0; i--) {
-            let bullet = this.enemyBullets[i];
-            bullet.y += bullet.speed;
-
-            // 检查是否击中玩家
-            let dx = this.ship.x - bullet.x;
-            let dy = this.ship.y - bullet.y;
-            let distance = Math.sqrt(dx * dx + dy * dy);
-
-            if (distance < 20) {
-                this.ship.score -= 10;  // 被击中扣分
-                this.enemyBullets.splice(i, 1);
-                this.playSound('hit');
-                continue;
-            }
-
-            // 移除出界的子弹
-            if (bullet.y > this.canvas.height) {
-                this.enemyBullets.splice(i, 1);
-            }
-        }
-    }
-
-    // 添加���机绘制方法
-    drawEnemy(enemy) {
-        this.ctx.save();
-        this.ctx.translate(enemy.x, enemy.y);
-
-        // 敌机主体
-        this.ctx.fillStyle = enemy.color;
-        this.ctx.beginPath();
-        this.ctx.moveTo(0, -15);
-        this.ctx.lineTo(-15, 15);
-        this.ctx.lineTo(15, 15);
-        this.ctx.closePath();
-        this.ctx.fill();
-
-        // 敌机装饰
-        this.ctx.strokeStyle = '#ff0000';
-        this.ctx.lineWidth = 2;
-        this.ctx.beginPath();
-        this.ctx.moveTo(-10, 0);
-        this.ctx.lineTo(10, 0);
-        this.ctx.stroke();
-
-        // 敌机引擎
-        this.ctx.fillStyle = '#ff8800';
-        this.ctx.beginPath();
-        this.ctx.moveTo(-8, 15);
-        this.ctx.lineTo(-4, 20);
-        this.ctx.lineTo(4, 20);
-        this.ctx.lineTo(8, 15);
-        this.ctx.closePath();
-        this.ctx.fill();
-
-        this.ctx.restore();
-    }
-    
     // 游戏循环
     gameLoop() {
         this.update();
         this.draw();
         requestAnimationFrame(() => this.gameLoop());
-    }
-
-    // 添加触摸事件处理方法
-    handleTouchStart(e) {
-        e.preventDefault();
-        const touch = e.touches[0];
-        this.touchStartX = touch.clientX;
-        this.touchStartY = touch.clientY;
-        this.isShooting = true;
-    }
-
-    handleTouchMove(e) {
-        // 如果正在使用虚拟按钮，则不处理触摸移动
-        if (this.virtualButtons.up || this.virtualButtons.down || 
-            this.virtualButtons.left || this.virtualButtons.right) {
-            return;
-        }
-        
-        e.preventDefault();
-        if (!this.touchStartX || !this.touchStartY) return;
-        
-        const touch = e.touches[0];
-        const rect = this.canvas.getBoundingClientRect();
-        const scale = this.canvas.width / rect.width;
-        
-        // 计算实际触摸位置
-        const x = (touch.clientX - rect.left) * scale;
-        const y = (touch.clientY - rect.top) * scale;
-        
-        // 平滑移动
-        const dx = x - this.ship.x;
-        const dy = y - this.ship.y;
-        
-        this.ship.x += dx * 0.2; // 添加平滑效果
-        this.ship.y += dy * 0.2;
-        
-        // 限制飞船移动范围
-        this.ship.x = Math.max(this.ship.size, Math.min(this.canvas.width - this.ship.size, this.ship.x));
-        this.ship.y = Math.max(this.canvas.height * 0.2, Math.min(this.canvas.height * 0.9, this.ship.y));
-    }
-
-    handleTouchEnd(e) {
-        e.preventDefault();
-        this.touchStartX = null;
-        this.touchStartY = null;
-        this.isShooting = false;
-    }
-
-    // 添加画布大小调整方法
-    resizeCanvas() {
-        // 获取设备屏幕尺寸
-        const screenWidth = window.innerWidth;
-        const screenHeight = window.innerHeight;
-        
-        // 设置画布大小
-        this.canvas.width = screenWidth;
-        this.canvas.height = screenHeight;
-        
-        // 重新计算游戏元素大小
-        this.gameScale = this.calculateGameScale();
-        
-        // 确保飞船在调整大小后保持在可见区域内
-        if (this.ship) {
-            this.ship.x = Math.min(Math.max(this.ship.size, this.ship.x), this.canvas.width - this.ship.size);
-            this.ship.y = Math.min(this.canvas.height * 0.8, this.canvas.height - this.ship.size);
-            this.ship.size = this.gameScale * 30;
-        }
-    }
-
-    // 添加游戏元素缩放计算方法
-    calculateGameScale() {
-        // 基于屏幕尺寸计算缩放比例
-        const baseWidth = 800; // 基准宽度
-        return Math.min(this.canvas.width / baseWidth, 1);
-    }
-
-    // 添加虚拟按钮设置方法
-    setupVirtualButtons() {
-        // 方向按钮
-        ['Up', 'Down', 'Left', 'Right'].forEach(direction => {
-            const btn = document.getElementById(`btn${direction}`);
-            if (btn) {
-                // 触摸开始
-                btn.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    this.virtualButtons[direction.toLowerCase()] = true;
-                });
-                
-                // 触摸结束
-                btn.addEventListener('touchend', (e) => {
-                    e.preventDefault();
-                    this.virtualButtons[direction.toLowerCase()] = false;
-                });
-                
-                // 触摸取消
-                btn.addEventListener('touchcancel', (e) => {
-                    e.preventDefault();
-                    this.virtualButtons[direction.toLowerCase()] = false;
-                });
-            }
-        });
-        
-        // 射击按钮
-        const shootBtn = document.getElementById('btnShoot');
-        if (shootBtn) {
-            shootBtn.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                this.virtualButtons.shoot = true;
-                if (!this.shootInterval) {
-                    this.shoot();
-                    this.shootInterval = setInterval(() => this.shoot(), 200);
-                }
-            });
-            
-            shootBtn.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                this.virtualButtons.shoot = false;
-                if (this.shootInterval) {
-                    clearInterval(this.shootInterval);
-                    this.shootInterval = null;
-                }
-            });
-            
-            shootBtn.addEventListener('touchcancel', (e) => {
-                e.preventDefault();
-                this.virtualButtons.shoot = false;
-                if (this.shootInterval) {
-                    clearInterval(this.shootInterval);
-                    this.shootInterval = null;
-                }
-            });
-        }
     }
 } 

@@ -11,6 +11,10 @@
             width: 100vw;
             height: 100vh;
             touch-action: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 0;
         }
         body {
             margin: 0;
@@ -22,14 +26,16 @@
             background: #000;
         }
         .game-title {
-            position: absolute;
+            position: fixed;
             top: 10px;
             left: 0;
             right: 0;
+            text-align: center;
             color: #4169E1;
             font-size: min(48px, 8vw);
             margin-bottom: 10px;
-            z-index: 1;
+            z-index: 20;
+            text-shadow: 0 0 10px rgba(0,0,0,0.5);
         }
         
         button {
@@ -65,14 +71,14 @@
             position: fixed;
             bottom: 20px;
             left: 20px;
-            z-index: 100;
+            z-index: 10;
         }
         
         .shoot-button {
             position: fixed;
             bottom: 40px;
             right: 40px;
-            z-index: 100;
+            z-index: 10;
         }
         
         .control-button {
@@ -128,15 +134,15 @@
     </div>
     <script src="game.js"></script>
     <script>
-        // 简单的初始化逻辑
         window.addEventListener('load', function() {
-            window.game = new SpaceGame();
+            // 确保DOM完全加载后再初始化游戏
+            const game = new SpaceGame();
             
             // 初始化音频（需要用户交互）
-            document.addEventListener('click', function startGame() {
-                if (window.game.audioContext) {
-                    window.game.audioContext.resume();
-                    document.removeEventListener('click', startGame);
+            document.addEventListener('touchstart', function initAudio() {
+                if (game.audioContext) {
+                    game.audioContext.resume();
+                    document.removeEventListener('touchstart', initAudio);
                 }
             }, { once: true });
         });

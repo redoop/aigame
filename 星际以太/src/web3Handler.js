@@ -3,17 +3,18 @@ class Web3Handler {
         this.web3 = null;
         this.contract = null;
         this.account = null;
-        this.setupEventListeners();
         console.log('Web3Handler initialized');
+        this.setupEventListeners();
     }
 
     setupEventListeners() {
         const connectButton = document.getElementById('connect-wallet');
         if (connectButton) {
-            connectButton.addEventListener('click', async () => {
+            console.log('Found connect button, adding click listener');
+            connectButton.onclick = async () => {
                 console.log('Connect button clicked');
                 await this.connect();
-            });
+            };
         } else {
             console.error('Connect button not found');
         }
@@ -24,8 +25,8 @@ class Web3Handler {
                 this.handleAccountsChanged(accounts);
             });
 
-            window.ethereum.on('chainChanged', (chainId) => {
-                console.log('Chain changed:', chainId);
+            window.ethereum.on('chainChanged', (_chainId) => {
+                console.log('Chain changed, reloading...');
                 window.location.reload();
             });
         }
@@ -38,20 +39,17 @@ class Web3Handler {
                 console.log('MetaMask found, requesting accounts...');
                 this.web3 = new Web3(window.ethereum);
                 
-                const accounts = await window.ethereum.request({ 
+                const accounts = await ethereum.request({ 
                     method: 'eth_requestAccounts' 
                 });
                 
                 console.log('Accounts received:', accounts);
-                this.account = accounts[0];
-                
-                // 更新UI
-                this.updateUIOnConnect();
-                
-                // 初始化合约
-                await this.initContract();
-                
-                return true;
+                if (accounts.length > 0) {
+                    this.account = accounts[0];
+                    console.log('Connected account:', this.account);
+                    this.updateUIOnConnect();
+                    return true;
+                }
             } catch (error) {
                 console.error('Connection error:', error);
                 alert('连接失败: ' + error.message);
@@ -134,4 +132,14 @@ class Web3Handler {
             console.error('挖矿失败:', error);
         }
     }
-} 
+}
+
+window.addEventListener('load', () => {
+    console.log('Page loaded, initializing Web3Handler...');
+    if (typeof window.ethereum !== 'undefined') {
+        window.web3Handler = new Web3Handler();
+    } else {
+        console.log('MetaMask not installed');
+        alert('请安装MetaMask插件！');
+    }
+}); 

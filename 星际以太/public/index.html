@@ -23,24 +23,5 @@
     <script src="https://cdn.jsdelivr.net/npm/web3@1.5.2/dist/web3.min.js"></script>
     <script src="./src/web3Handler.js"></script>
     <script src="./src/game.js"></script>
-
-    <script>
-        window.addEventListener('load', async () => {
-            if (typeof window.ethereum !== 'undefined') {
-                console.log('MetaMask is installed!');
-                
-                window.web3Handler = new Web3Handler();
-                
-                const accounts = await ethereum.request({ method: 'eth_accounts' });
-                if (accounts.length > 0) {
-                    console.log('Already connected:', accounts[0]);
-                    web3Handler.connect();
-                }
-            } else {
-                console.log('Please install MetaMask!');
-                alert('请安装MetaMask插件！');
-            }
-        });
-    </script>
 </body>
 </html> 
