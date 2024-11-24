@@ -181,48 +181,50 @@ class MazeGame {
     }
 
     setupControls() {
-        // 键盘控制
-        document.addEventListener('keydown', (e) => {
+        // 创建统一的移动处理函数
+        const handleMove = (direction) => {
             if (this.gameOver) return;
             
             let newX = this.playerPos.x;
             let newY = this.playerPos.y;
 
-            switch (e.key) {
-                case 'ArrowUp': newY--; break;
-                case 'ArrowDown': newY++; break;
-                case 'ArrowLeft': newX--; break;
-                case 'ArrowRight': newX++; break;
+            switch (direction) {
+                case 'up': newY--; break;
+                case 'down': newY++; break;
+                case 'left': newX--; break;
+                case 'right': newX++; break;
                 default: return;
             }
 
             this.movePlayer(newX, newY);
-        });
-
-        // 触摸按钮控制
-        const buttons = {
-            'up-btn': { dx: 0, dy: -1 },
-            'down-btn': { dx: 0, dy: 1 },
-            'left-btn': { dx: -1, dy: 0 },
-            'right-btn': { dx: 1, dy: 0 }
         };
 
-        Object.entries(buttons).forEach(([id, movement]) => {
+        // 键盘控制
+        document.addEventListener('keydown', (e) => {
+            switch (e.key) {
+                case 'ArrowUp': handleMove('up'); break;
+                case 'ArrowDown': handleMove('down'); break;
+                case 'ArrowLeft': handleMove('left'); break;
+                case 'ArrowRight': handleMove('right'); break;
+            }
+        });
+
+        // 屏幕按钮控制
+        const buttons = {
+            'up-btn': 'up',
+            'down-btn': 'down',
+            'left-btn': 'left',
+            'right-btn': 'right'
+        };
+
+        Object.entries(buttons).forEach(([id, direction]) => {
             const button = document.getElementById(id);
             if (button) {
-                const moveHandler = () => {
-                    if (this.gameOver) return;
-                    const newX = this.playerPos.x + movement.dx;
-                    const newY = this.playerPos.y + movement.dy;
-                    this.movePlayer(newX, newY);
-                };
-
-                // 添加触摸和点击事件
-                button.addEventListener('touchstart', moveHandler);
-                button.addEventListener('click', moveHandler);
-                
-                // 防止触摸按钮时页面滚动
-                button.addEventListener('touchstart', (e) => e.preventDefault());
+                button.addEventListener('click', () => handleMove(direction));
+                button.addEventListener('touchstart', (e) => {
+                    e.preventDefault(); // 防止触摸事件的默认行为
+                    handleMove(direction);
+                });
             }
         });
     }

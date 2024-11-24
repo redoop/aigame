@@ -161,8 +161,8 @@ h1 {
     border: 1px solid #0066cc;
 }
 
-.mobile-controls {
-    display: none;
+.control-buttons {
+    display: flex;
     flex-direction: column;
     align-items: center;
     margin-top: 20px;
@@ -170,23 +170,23 @@ h1 {
 
 .horizontal-controls {
     display: flex;
-    gap: 50px;
+    gap: 30px;
     margin: 10px 0;
 }
 
-.mobile-controls button {
-    width: 60px;
-    height: 60px;
+.control-buttons button {
+    width: 50px;
+    height: 50px;
     background: rgba(0, 102, 204, 0.3);
     border: 2px solid #0066cc;
     border-radius: 50%;
     color: #00ffff;
-    font-size: 24px;
+    font-size: 20px;
     cursor: pointer;
     transition: all 0.3s ease;
 }
 
-.mobile-controls button:active {
+.control-buttons button:active {
     background: rgba(0, 102, 204, 0.6);
     transform: scale(0.95);
 }
@@ -196,10 +196,6 @@ h1 {
     .cell {
         width: 30px;
         height: 30px;
-    }
-
-    .mobile-controls {
-        display: flex;
     }
 
     .game-info {
