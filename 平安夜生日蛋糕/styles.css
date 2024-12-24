@@ -1,0 +1,401 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f0f0f0;
+    margin: 0;
+    padding: 20px;
+    background-image: linear-gradient(to bottom, #e74c3c, #c0392b);
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+h1 {
+    color: white;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+
+.game-area {
+    background-color: white;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.2);
+}
+
+.cake {
+    width: 300px;
+    height: 300px;
+    margin: 0 auto;
+    position: relative;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cake-layer {
+    position: absolute;
+    border-radius: 50%;
+    background: linear-gradient(to bottom, #f9d5e5, #ffe4e1);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    overflow: visible;
+    transform-style: preserve-3d;
+}
+
+.cake-layer::before {
+    display: none;
+}
+
+.cake-layer-bottom {
+    width: 200px;
+    height: 60px;
+    bottom: 70px;
+    background: linear-gradient(to bottom, #ffb6c1, #ffa07a);
+}
+
+.cake-layer-middle {
+    width: 160px;
+    height: 50px;
+    bottom: 140px;
+    background: linear-gradient(to bottom, #ffb6c1, #ff9aa2);
+}
+
+.cake-layer-top {
+    width: 120px;
+    height: 40px;
+    bottom: 200px;
+    background: linear-gradient(to bottom, #ffd1dc, #ffb6c1);
+}
+
+.decoration {
+    position: absolute;
+    cursor: move;
+    user-select: none;
+    font-size: 24px;
+    z-index: 10;
+}
+
+.decoration-panel {
+    margin-top: 20px;
+    padding: 20px;
+    background-color: rgba(255,255,255,0.9);
+    border-radius: 10px;
+}
+
+.decorations button {
+    margin: 5px;
+    padding: 10px 20px;
+    font-size: 18px;
+    border: none;
+    border-radius: 5px;
+    background-color: #e74c3c;
+    color: white;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.decorations button:hover {
+    transform: scale(1.1);
+}
+
+.reset-btn {
+    margin-top: 20px;
+    padding: 10px 20px;
+    font-size: 16px;
+    background-color: #34495e;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.cream-top, .cream-middle, .cream-bottom {
+    position: absolute;
+    width: 110%;
+    height: 20px;
+    left: -5%;
+    top: -5px;
+    background: linear-gradient(to bottom, #fff, #ffe4e1);
+    border-radius: 50% 50% 5px 5px;
+    transform-origin: center bottom;
+    transform: rotateX(-15deg);
+}
+
+.cream-top::before, .cream-middle::before, .cream-bottom::before {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 15px;
+    background: inherit;
+    border-radius: 50% 50% 5px 5px;
+    bottom: -5px;
+    left: 0;
+    filter: brightness(0.95);
+}
+
+.cream-dots {
+    position: absolute;
+    width: 100%;
+    height: 25px;
+    top: -15px;
+    left: 0;
+}
+
+.cream-dots::before {
+    content: '';
+    position: absolute;
+    width: 10px;
+    height: 15px;
+    background: linear-gradient(to bottom, #fff, #ffe4e1);
+    border-radius: 50% 50% 45% 45%;
+    box-shadow: 
+        25px 3px 0 -2px #fff,
+        50px 0px 0 -1px #fff,
+        75px 4px 0 -2px #fff,
+        100px 2px 0 -1px #fff;
+}
+
+.cake-layer-top .cream-top,
+.cake-layer-top .cream-top::before,
+.cake-layer-top .cream-dots::before {
+    background: linear-gradient(to bottom, #fff, #ffd1dc);
+}
+
+.cake-layer-middle .cream-middle,
+.cake-layer-middle .cream-middle::before,
+.cake-layer-middle .cream-dots::before {
+    background: linear-gradient(to bottom, #fff, #ffb6c1);
+}
+
+.cake-layer-bottom .cream-bottom,
+.cake-layer-bottom .cream-bottom::before,
+.cake-layer-bottom .cream-dots::before {
+    background: linear-gradient(to bottom, #fff, #ff9aa2);
+}
+
+@keyframes creamWave {
+    0%, 100% {
+        transform: rotateX(-15deg) scaleY(1);
+    }
+    50% {
+        transform: rotateX(-15deg) scaleY(1.05);
+    }
+}
+
+.cake-layer::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: inherit;
+    border-radius: 50%;
+    top: 0;
+    left: 0;
+    z-index: 1;
+}
+
+.music-control {
+    margin: 10px 0;
+}
+
+.music-control button {
+    padding: 10px 20px;
+    font-size: 18px;
+    background-color: #2ecc71;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.music-control button:hover {
+    transform: scale(1.1);
+    background-color: #27ae60;
+}
+
+.candle {
+    position: absolute;
+    cursor: pointer;
+    user-select: none;
+    z-index: 10;
+    transition: all 0.3s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.candle::before {
+    content: '';
+    width: 4px;
+    height: 35px;
+    background: linear-gradient(to right, #ffecec, #fff, #ffecec);
+    border-radius: 2px;
+}
+
+.candle::after {
+    content: '🔥';
+    font-size: 16px;
+    position: absolute;
+    top: -15px;
+    opacity: 0;
+    transform: scale(0.8);
+    filter: none;
+}
+
+.candle.lit::after {
+    opacity: 1;
+    animation: flicker 3s infinite ease-in-out;
+    transform-origin: center bottom;
+}
+
+.big-candle {
+    top: -70px !important;
+}
+
+.big-candle::before {
+    width: 6px;
+    height: 50px;
+    background: linear-gradient(to right, #ffecec, #fff, #ffecec);
+}
+
+.big-candle::after {
+    font-size: 24px;
+    top: -22px;
+}
+
+.candle:not(.big-candle)::before {
+    width: 3px;
+    height: 25px;
+}
+
+.candle:not(.big-candle)::after {
+    font-size: 14px;
+    top: -13px;
+}
+
+@keyframes flicker {
+    0%, 100% {
+        transform: scale(1) rotate(-2deg);
+        filter: brightness(1.1);
+    }
+    25% {
+        transform: scale(1.05) rotate(3deg);
+        filter: brightness(1);
+    }
+    50% {
+        transform: scale(0.95) rotate(-1deg);
+        filter: brightness(0.9);
+    }
+    75% {
+        transform: scale(1.02) rotate(2deg);
+        filter: brightness(1.05);
+    }
+}
+
+@keyframes bigFlicker {
+    0%, 100% {
+        transform: scale(1.1) rotate(-1deg);
+        filter: brightness(1.2);
+    }
+    25% {
+        transform: scale(1.15) rotate(2deg);
+        filter: brightness(1.1);
+    }
+    50% {
+        transform: scale(1.05) rotate(-2deg);
+        filter: brightness(1);
+    }
+    75% {
+        transform: scale(1.12) rotate(1deg);
+        filter: brightness(1.15);
+    }
+}
+
+.candle.lit {
+    filter: drop-shadow(0 0 5px rgba(255, 107, 107, 0.4))
+            drop-shadow(0 0 8px rgba(255, 107, 107, 0.2));
+}
+
+.big-candle.lit {
+    filter: drop-shadow(0 0 10px rgba(255, 107, 107, 0.5))
+            drop-shadow(0 0 15px rgba(255, 107, 107, 0.3));
+}
+
+.blow-hint {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    display: none;
+    z-index: 100;
+}
+
+.blow-hint.show {
+    display: block;
+    animation: fadeIn 0.3s;
+}
+
+.big-candle {
+    position: absolute !important;
+    top: -60px !important;
+    left: 50% !important;
+    transform: translateX(-50%);
+    font-size: 80px !important;
+    z-index: 20;
+    cursor: pointer;
+}
+
+.big-candle.lit {
+    text-shadow: 0 0 20px #ff6b6b,
+                 0 0 40px #ff6b6b,
+                 0 0 60px #ff6b6b;
+    animation: bigFlicker 1.5s infinite alternate;
+}
+
+@keyframes bigFlicker {
+    0%, 100% {
+        opacity: 1;
+        transform: translateX(-50%) scale(1);
+    }
+    50% {
+        opacity: 0.95;
+        transform: translateX(-50%) scale(0.98);
+    }
+}
+
+.candle:not(.big-candle) {
+    font-size: 30px;
+}
+
+/* 添加黑天鹅样式 */
+.swan {
+    position: absolute;
+    font-size: 35px;
+    z-index: 15;
+    filter: brightness(0.2) contrast(1.5);
+    transform-origin: center;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.swan:hover {
+    transform: scale(1.1);
+}
+
+/* 左边的天鹅 */
+.swan.left {
+    transform: scaleX(-1); /* 左边的天鹅朝向右边 */
+}
+
+/* 右边的天鹅 */
+.swan.right {
+    transform: scaleX(1); /* 右边的天鹅朝向左边 */
+} 

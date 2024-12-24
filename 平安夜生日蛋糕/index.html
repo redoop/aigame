@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>小朋友的黑天鹅生日蛋糕</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>小朋友的黑天鹅生日蛋糕</h1>
+        <div class="game-area">
+            <div id="cake" class="cake">
+                <!-- 添加顶部大蜡烛 -->
+                <div class="candle big-candle lit">🕯️</div>
+                <!-- 三层蛋糕 -->
+                <div class="cake-layer cake-layer-top">
+                    <div class="cream-top"></div>
+                    <div class="cream-dots"></div>
+                </div>
+                <div class="cake-layer cake-layer-middle">
+                    <div class="cream-middle"></div>
+                    <div class="cream-dots"></div>
+                </div>
+                <div class="cake-layer cake-layer-bottom">
+                    <div class="cream-bottom"></div>
+                    <div class="cream-dots"></div>
+                </div>
+            </div>
+            <div class="decoration-panel">
+                <h2>选择装饰</h2>
+                <div class="music-control">
+                    <button onclick="toggleBirthdaySong()" id="musicBtn">🎵 播放音乐</button>
+                </div>
+                <div class="decorations">
+                    <button onclick="addDecoration('蜡烛')">🕯️ 蜡烛</button>
+                    <button onclick="addDecoration('草莓')">🍓 草莓</button>
+                    <button onclick="addDecoration('黑天鹅')">🦢 黑天鹅</button>
+                    <button onclick="addDecoration('星星')">⭐ 星星</button>
+                    <button onclick="addDecoration('礼物')">🎁 礼物</button>
+                </div>
+                <button onclick="resetCake()" class="reset-btn">重新开始</button>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html> 
