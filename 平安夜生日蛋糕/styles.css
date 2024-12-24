@@ -398,4 +398,144 @@ h1 {
 /* 右边的天鹅 */
 .swan.right {
     transform: scaleX(1); /* 右边的天鹅朝向左边 */
+}
+
+/* 添加响应式设计 */
+@media screen and (max-width: 768px) {
+    body {
+        padding: 10px;
+    }
+
+    .container {
+        max-width: 100%;
+    }
+
+    h1 {
+        font-size: 24px;
+        margin: 10px 0;
+    }
+
+    .game-area {
+        padding: 10px;
+    }
+
+    .cake {
+        width: 280px;
+        height: 280px;
+    }
+
+    /* 调整蛋糕层大小 */
+    .cake-layer-bottom {
+        width: 180px;
+        height: 50px;
+        bottom: 60px;
+    }
+
+    .cake-layer-middle {
+        width: 140px;
+        height: 40px;
+        bottom: 120px;
+    }
+
+    .cake-layer-top {
+        width: 100px;
+        height: 30px;
+        bottom: 170px;
+    }
+
+    /* 调整装饰面板 */
+    .decoration-panel {
+        margin-top: 10px;
+        padding: 10px;
+    }
+
+    .decorations {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 5px;
+    }
+
+    .decorations button {
+        margin: 2px;
+        padding: 8px 15px;
+        font-size: 16px;
+    }
+
+    /* 调整音乐控制按钮 */
+    .music-control button {
+        padding: 8px 15px;
+        font-size: 16px;
+    }
+
+    /* 调整重置按钮 */
+    .reset-btn {
+        margin-top: 10px;
+        padding: 8px 15px;
+    }
+
+    /* 调整天鹅位置 */
+    .swan.left {
+        left: 20px;
+    }
+
+    .swan.right {
+        right: 20px;
+    }
+
+    /* 调整提示框 */
+    .blow-hint {
+        width: 80%;
+        font-size: 14px;
+        padding: 8px 15px;
+    }
+}
+
+/* 针对更小的屏幕 */
+@media screen and (max-width: 375px) {
+    h1 {
+        font-size: 20px;
+    }
+
+    .cake {
+        width: 250px;
+        height: 250px;
+    }
+
+    /* 进一步缩小蛋糕层 */
+    .cake-layer-bottom {
+        width: 160px;
+        height: 45px;
+    }
+
+    .cake-layer-middle {
+        width: 120px;
+        height: 35px;
+    }
+
+    .cake-layer-top {
+        width: 90px;
+        height: 25px;
+    }
+
+    /* 调整装饰按钮 */
+    .decorations button {
+        padding: 6px 12px;
+        font-size: 14px;
+    }
+
+    /* 调整天鹅大小和位置 */
+    .swan {
+        font-size: 28px;
+    }
+
+    .swan.left {
+        left: 15px;
+        bottom: 35px;
+    }
+
+    .swan.right {
+        right: 15px;
+        bottom: 35px;
+    }
 } 

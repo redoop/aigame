@@ -52,9 +52,14 @@ function addDecoration(type) {
             case '星星': decoration.innerHTML = '⭐'; break;
             case '礼物': decoration.innerHTML = '🎁'; break;
         }
-        // 随机位置
-        decoration.style.left = Math.random() * 160 + 70 + 'px';
-        decoration.style.top = Math.random() * 160 + 70 + 'px';
+        // 获取蛋糕容器的实际大小
+        const cakeRect = cake.getBoundingClientRect();
+        const maxWidth = cakeRect.width - 40;  // 留出边距
+        const maxHeight = cakeRect.height - 40;
+        
+        // 计算随机位置
+        decoration.style.left = Math.random() * maxWidth + 20 + 'px';
+        decoration.style.top = Math.random() * maxHeight + 20 + 'px';
     }
     
     if (type !== '黑天鹅') {
