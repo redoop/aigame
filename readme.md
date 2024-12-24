@@ -4,3 +4,4 @@ ai game
 - [星际斗罗](./星际斗罗/index.html)
 - [星际方块](./星际方块/index.html)
 - [双截龙](./双截龙/index.html)
+- [平安夜生日蛋糕](./平安夜生日蛋糕/index.html)
