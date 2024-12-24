@@ -6,7 +6,7 @@ function addDecoration(type) {
     
     if (type === '蜡烛') {
         decoration.className = 'candle';
-        decoration.innerHTML = '🕯️';
+        decoration.innerHTML = '🦢';
         decoration.onclick = toggleCandle;
         // 第一次添加蜡烛时显示提示
         if (!document.querySelector('.candle:not(.big-candle)')) {
