@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>抓金鱼游戏</title>
+    <style>
+        .game-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            margin: 0 auto;
+        }
+        canvas {
+            border: 2px solid #000;
+            display: block;
+            background: #87CEEB;
+            position: absolute;
+            z-index: 1;
+        }
+        .fish {
+            position: absolute;
+            width: 50px;
+            height: 30px;
+            pointer-events: none;
+            z-index: 2;
+            transform-origin: center;
+        }
+        .fish-body {
+            position: absolute;
+            width: 60%;
+            height: 66.7%;
+            background: #FF4D4D;
+            border-radius: 50% 30% 30% 50%;
+            top: 16.7%;
+            left: 0;
+        }
+        .fish-tail {
+            position: absolute;
+            width: 30%;
+            height: 66.7%;
+            background: #FF4D4D;
+            right: 10%;
+            top: 16.7%;
+            clip-path: polygon(0 50%, 100% 0, 100% 100%);
+            animation: tailWag 0.5s infinite alternate;
+        }
+        .fish-eye {
+            position: absolute;
+            width: 8%;
+            height: 13.3%;
+            background: black;
+            border-radius: 50%;
+            top: 26.7%;
+            left: 10%;
+        }
+        .fish-fin {
+            position: absolute;
+            width: 20%;
+            height: 50%;
+            background: #FF8080;
+            top: 0;
+            left: 30%;
+            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+            animation: finWave 1s infinite alternate;
+        }
+        @keyframes tailWag {
+            from { transform: rotateY(0deg); }
+            to { transform: rotateY(30deg); }
+        }
+        @keyframes finWave {
+            from { transform: rotate(-10deg); }
+            to { transform: rotate(10deg); }
+        }
+        .score-popup {
+            position: absolute;
+            text-align: center;
+            pointer-events: none;
+            z-index: 3;
+            min-width: 120px;
+            transform: translateX(-50%);
+            opacity: 1;
+        }
+        
+        .score-text {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .english-word {
+            font-size: 20px;
+            margin-bottom: 5px;
+        }
+        
+        .meaning {
+            font-size: 18px;
+            color: #FFD700;
+            opacity: 0;
+            transform: translateY(-10px);
+            animation: fadeIn 0.5s ease-in forwards;
+        }
+        
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .fish-word {
+            position: absolute;
+            width: 200%;
+            text-align: center;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        .word-text {
+            display: inline-block;
+            transform: scaleX(1) !important;
+        }
+        
+        .word-popup {
+            font-size: 18px;
+            display: block;
+            margin-top: 5px;
+            white-space: nowrap;
+        }
+        
+        .meaning {
+            font-size: 16px;
+            color: #FFD700;
+            display: block;
+            margin-top: 5px;
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+        }
+        
+        .score-text, .english-word, .meaning {
+            opacity: 1;
+            transition: opacity 1s ease-out;
+        }
+        
+        /* 海草样式 */
+        .seaweed {
+            position: absolute;
+            bottom: 0;
+            width: 20px;
+            height: 100px;
+            z-index: 1;
+        }
+        
+        .seaweed-leaf {
+            position: absolute;
+            width: 100%;
+            height: 40px;
+            background: #2E8B57;
+            border-radius: 0 100% 0 100%;
+            transform-origin: bottom;
+            animation: waveSeaweed 3s ease-in-out infinite alternate;
+        }
+        
+        @keyframes waveSeaweed {
+            from { transform: rotate(-10deg); }
+            to { transform: rotate(10deg); }
+        }
+        
+        /* 海星样式 */
+        .starfish {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            z-index: 1;
+            transition: none;
+        }
+        
+        .starfish::before {
+            content: '★';
+            position: absolute;
+            font-size: 40px;
+            color: #FF69B4;
+            transform: rotate(15deg);
+            animation: twinkle 2s ease-in-out infinite;
+        }
+        
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.8; transform: rotate(15deg) scale(1); }
+            50% { opacity: 1; transform: rotate(15deg) scale(1.1); }
+        }
+        
+        /* 章鱼样式 */
+        .octopus {
+            position: absolute;
+            width: 70px;
+            height: 70px;
+            z-index: 2;
+        }
+        
+        .octopus-head {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: #800080;
+            border-radius: 50%;
+            top: 0;
+            left: 15px;
+        }
+        
+        .octopus-eye {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: white;
+            border-radius: 50%;
+            top: 10px;
+        }
+        
+        .octopus-eye.left {
+            left: 8px;
+        }
+        
+        .octopus-eye.right {
+            right: 8px;
+        }
+        
+        .octopus-tentacle {
+            position: absolute;
+            width: 8px;
+            height: 30px;
+            background: #800080;
+            bottom: 0;
+            border-radius: 4px;
+            transform-origin: top;
+            animation: tentacleWave 2s ease-in-out infinite;
+        }
+        
+        @keyframes tentacleWave {
+            0%, 100% { transform: rotate(0deg); }
+            50% { transform: rotate(15deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+    </div>
+    <script src="game.js"></script>
+</body>
+</html> 
