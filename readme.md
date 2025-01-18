@@ -5,3 +5,5 @@ ai game
 - [星际方块](./星际方块/index.html)
 - [双截龙](./双截龙/index.html)
 - [平安夜生日蛋糕](./平安夜生日蛋糕/index.html)
+- [人体大冒险](./人体大冒险/index.html)
+- [小丑鱼游戏](./小丑鱼游戏/index.html)
