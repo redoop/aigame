@@ -1,0 +1,314 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    cursor: none !important;
+}
+
+.game-container {
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #f0f0f0;
+    padding: 20px;
+}
+
+.human-body {
+    position: relative;
+    width: 300px;
+    height: 600px;
+    background: transparent;
+}
+
+.body-base {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.body-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 300px;
+    height: 600px;
+    transition: opacity 0.3s;
+}
+
+.skeleton {
+    opacity: 0.7;
+}
+
+.organs {
+    opacity: 0.9;
+}
+
+.organ {
+    position: absolute;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s ease-out;
+    width: 40px;
+    height: 40px;
+    position: absolute;
+    cursor: pointer;
+    transition: filter 0.3s;
+    transform-style: preserve-3d;
+    perspective: 1000px;
+    border-radius: 50%;
+    background-color: transparent;
+}
+
+.organ:hover {
+    filter: brightness(1.2);
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+.organ:active {
+    transform: scale(0.95);
+    filter: brightness(1.4);
+}
+
+.food-particle {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: #4CAF50;
+    border-radius: 50%;
+    display: none;
+    z-index: 10;
+}
+
+.virus {
+    position: absolute;
+    width: 15px;
+    height: 15px;
+    background: #ff0000;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 10;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+.game-controls {
+    margin-top: 20px;
+    text-align: center;
+}
+
+button {
+    padding: 10px 20px;
+    font-size: 16px;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+button:hover {
+    background: #45a049;
+    transform: scale(1.05);
+}
+
+.score {
+    margin-top: 10px;
+    font-size: 18px;
+    color: #333;
+}
+
+[data-organ]:hover::after {
+    content: attr(data-organ);
+    position: absolute;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 14px;
+    top: -25px;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    z-index: 11;
+}
+
+@keyframes digest {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.digesting {
+    animation: digest 1s ease-in-out;
+}
+
+.food-buttons {
+    margin-top: 10px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.food-buttons button {
+    padding: 8px 15px;
+    border: none;
+    border-radius: 5px;
+    color: white;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.food-buttons button:hover {
+    transform: scale(1.1);
+}
+
+.health {
+    margin-top: 10px;
+    font-size: 18px;
+    color: #4CAF50;
+}
+
+@keyframes chew {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2) rotate(45deg); }
+    100% { transform: scale(1); }
+}
+
+.heart {
+    top: 160px;
+    left: 130px;
+}
+
+.lungs {
+    top: 140px;
+    left: 110px;
+    width: 80px;
+}
+
+.liver {
+    top: 250px;
+    left: 130px;
+}
+
+.stomach {
+    top: 200px;
+    left: 140px;
+}
+
+.small-intestine {
+    top: 350px;
+    left: 130px;
+    width: 60px;
+}
+
+.large-intestine {
+    top: 450px;
+    left: 120px;
+    width: 80px;
+}
+
+#organ-tooltip {
+    position: fixed;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 10px;
+    border-radius: 5px;
+    font-size: 14px;
+    max-width: 200px;
+    z-index: 1000;
+    display: none;
+    pointer-events: none;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.organ {
+    cursor: pointer;
+    transition: filter 0.3s;
+}
+
+.organ:hover {
+    filter: brightness(1.2);
+}
+
+.organ:active {
+    filter: brightness(1.4);
+    transform: scale(0.95);
+}
+
+/* 木鱼和木槌样式 */
+.fighter {
+    position: fixed;
+    width: 40px;
+    height: 40px;
+    pointer-events: none;
+    z-index: 9999;
+    transform-origin: 20px 20px;
+}
+
+.fighter svg {
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 2px 2px rgba(0,0,0,0.2));
+}
+
+/* 敲击动画 */
+.fighter.hitting .mallet {
+    animation: hit 0.1s ease-in-out;
+    transform-origin: 18px 22px;
+}
+
+@keyframes hit {
+    0% { transform: rotate(0deg); }
+    50% { transform: rotate(-30deg); }
+    100% { transform: rotate(0deg); }
+}
+
+/* 木鱼震动效果 */
+.fighter.hitting .woodfish {
+    animation: shake 0.1s ease-in-out;
+}
+
+@keyframes shake {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(-2px); }
+    75% { transform: translateX(2px); }
+    100% { transform: translateX(0); }
+}
+
+/* 木鱼敲击效果 */
+@keyframes organHit {
+    0% { 
+        transform: scale(1);
+        filter: brightness(1);
+    }
+    50% { 
+        transform: scale(1.2);
+        filter: brightness(1.5);
+    }
+    100% { 
+        transform: scale(1);
+        filter: brightness(1);
+    }
+}
+
+.organ-hit {
+    animation: organHit 0.2s cubic-bezier(.36,.07,.19,.97) both;
+    transform-origin: center;
+}

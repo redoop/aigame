@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>人体大冒险</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="game-container">
+        <h1>人体大冒险</h1>
+        <div class="human-body">
+            <canvas id="bodyCanvas" class="body-layer"></canvas>
+            <canvas id="skeletonCanvas" class="body-layer skeleton"></canvas>
+            <canvas id="organsCanvas" class="body-layer organs"></canvas>
+            <div class="organ heart" data-organ="心脏"></div>
+            <div class="organ lungs" data-organ="肺部"></div>
+            <div class="organ liver" data-organ="肝脏"></div>
+            <div class="organ stomach" data-organ="胃"></div>
+            <div class="organ small-intestine" data-organ="小肠"></div>
+            <div class="organ large-intestine" data-organ="大肠"></div>
+        </div>
+        <div class="game-controls">
+            <button id="start-game">开始游戏</button>
+            <div class="score">分数: <span id="score">0</span></div>
+            <div class="health">健康值: <span id="health">100</span></div>
+        </div>
+        <div class="food-particle" id="food"></div>
+        <div class="virus-container"></div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
