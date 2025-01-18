@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>草原赛车</title>
+    <style>
+        body { margin: 0; }
+        #score {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 24px;
+            font-family: Arial;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            display: flex;
+            gap: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="score">得分: <span id="score-value">0</span></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.159.0/three.min.js"></script>
+    <script src="js/Star.js"></script>
+    <script src="js/Car.js"></script>
+    <script src="js/Track.js"></script>
+    <script src="js/Nature.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html> 
