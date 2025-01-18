@@ -7,3 +7,4 @@ ai game
 - [平安夜生日蛋糕](./平安夜生日蛋糕/index.html)
 - [人体大冒险](./人体大冒险/index.html)
 - [小丑鱼游戏](./小丑鱼游戏/index.html)
+- [赛车跑酷](./赛车跑酷/index.html)
