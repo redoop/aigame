@@ -6,6 +6,12 @@ class Game {
         this.width = this.canvas.width;
         this.height = this.canvas.height;
         
+        // 设置画布大小为屏幕大小
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+        this.width = this.canvas.width;
+        this.height = this.canvas.height;
+        
         // 初始化游戏元素
         this.fishingRod = {
             x: this.width / 2,
@@ -14,7 +20,7 @@ class Game {
             maxLength: 500,      // 增加最大长度
             hookSize: 8,
             isFishing: false,
-            speed: 8             // 增加放线速度
+            speed: 6             // 降低放线速度
         };
         
         // 获取游戏容器
@@ -99,12 +105,63 @@ class Game {
         this.createFishes();
         this.createOctopus();
         
-        // 绑定事件监听
+        // 添加鼠标移动事件
         this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         
+        // 添加触摸事件监听
+        this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e));
+        
+        // 添加钓鱼按钮事件 - 触摸
+        this.fishingButton = document.getElementById('fishingButton');
+        this.fishingButton.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            this.fishingRod.isFishing = true;
+            this.startFishing();
+            this.fishingButton.classList.add('active');
+        });
+        
+        this.fishingButton.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            this.fishingRod.isFishing = false;
+            this.pullUp();
+            this.fishingButton.classList.remove('active');
+        });
+        
+        // 添加钓鱼按钮事件 - 鼠标
+        this.fishingButton.addEventListener('mousedown', (e) => {
+            this.fishingRod.isFishing = true;
+            this.startFishing();
+            this.fishingButton.classList.add('active');
+        });
+        
+        this.fishingButton.addEventListener('mouseup', (e) => {
+            this.fishingRod.isFishing = false;
+            this.pullUp();
+            this.fishingButton.classList.remove('active');
+        });
+        
         // 添加键盘事件监听
-        document.addEventListener('keydown', (e) => this.handleKeyDown(e));
-        document.addEventListener('keyup', (e) => this.handleKeyUp(e));
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && !this.fishingRod.isFishing) {
+                this.fishingRod.isFishing = true;
+                this.startFishing();
+                this.fishingButton.classList.add('active');
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            if (e.code === 'Space') {
+                this.fishingRod.isFishing = false;
+                this.pullUp();
+                this.fishingButton.classList.remove('active');
+            }
+        });
+        
+        // 添加窗口大小改变事件
+        window.addEventListener('resize', () => this.handleResize());
+        
+        // 调整初始参数
+        this.fishingRod.maxLength = this.height * 0.7;  // 根据屏幕高度调整最大长度
         
         // 添加分数
         this.score = 0;
@@ -122,25 +179,27 @@ class Game {
         this.gameLoop();
     }
     
+    // 恢复鼠标移动处理方法
     handleMouseMove(e) {
         const rect = this.canvas.getBoundingClientRect();
         this.fishingRod.x = e.clientX - rect.left;
     }
     
-    // 处理按键按下
-    handleKeyDown(e) {
-        if (e.code === 'Space' && !this.fishingRod.isFishing) {
-            this.fishingRod.isFishing = true;
-            this.startFishing();
-        }
+    // 添加触摸移动处理方法
+    handleTouchMove(e) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const rect = this.canvas.getBoundingClientRect();
+        this.fishingRod.x = touch.clientX - rect.left;
     }
     
-    // 处理按键释放
-    handleKeyUp(e) {
-        if (e.code === 'Space') {
-            this.fishingRod.isFishing = false;
-            this.pullUp();
-        }
+    // 添加窗口大小改变处理方法
+    handleResize() {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+        this.width = this.canvas.width;
+        this.height = this.canvas.height;
+        this.fishingRod.maxLength = this.height * 0.7;
     }
     
     // 创建音效
@@ -311,8 +370,8 @@ class Game {
         const wordObj = this.words[Math.floor(Math.random() * this.words.length)];
         
         // 更新鱼的大小
-        const baseWidth = 50;
-        const baseHeight = 30;
+        const baseWidth = 40;
+        const baseHeight = 24;
         const scale = fishType.size;
         
         fish.element.style.width = `${baseWidth * scale}px`;
@@ -370,31 +429,34 @@ class Game {
         
         // 绘制分数
         this.ctx.fillStyle = '#FFFFFF';
-        this.ctx.font = 'bold 24px Arial';
-        this.ctx.fillText(`总分: ${this.score}`, 10, 60);
+        this.ctx.font = 'bold 18px Arial';
+        this.ctx.fillText(`总分: ${this.score}`, 10, 30);
         
         // 绘制鱼的说明
-        this.ctx.font = '16px Arial';
+        this.ctx.font = '14px Arial';
         this.fishTypes.forEach((type, index) => {
             this.ctx.fillStyle = type.color;
             let category;
             switch(index) {
                 case 0: category = '章鱼'; break;
-                case 1: category = '核心组件 (大)'; break;
-                case 2: category = '数据处理 (中大)'; break;
-                case 3: category = '数据存储 (中)'; break;
-                case 4: category = '工具组件 (小)'; break;
+                case 1: category = '核心组件'; break;
+                case 2: category = '数据处理'; break;
+                case 3: category = '数据存储'; break;
+                case 4: category = '工具组件'; break;
             }
-            this.ctx.fillText(`${category}: ${type.score}分`, 10, 90 + index * 25);
+            this.ctx.fillText(`${category}: ${type.score}分`, 10, 50 + index * 20);
         });
         
         // 绘制操作提示
-        this.ctx.font = '20px Arial';
-        this.ctx.fillText('按住空格键放线，松开收线', 10, 30);
-        
-        // 添加章鱼说明
-        this.ctx.fillStyle = '#800080';
-        this.ctx.fillText('章鱼: 10分 (特殊奖励)', 10, 90 + this.fishTypes.length * 25);
+        this.ctx.font = '16px Arial';
+        this.ctx.fillStyle = '#FFFFFF';
+        if ('ontouchstart' in window) {
+            // 移动设备显示触摸提示
+            this.ctx.fillText('触摸屏幕移动鱼竿，按住按钮钓鱼', 10, this.height - 30);
+        } else {
+            // PC设备显示键鼠提示
+            this.ctx.fillText('移动鼠标控制鱼竿，按住空格键或按钮钓鱼', 10, this.height - 30);
+        }
     }
     
     gameLoop() {
@@ -452,8 +514,9 @@ class Game {
     
     // 创建海草
     createSeaweed() {
-        // 创建多株海草
-        for (let i = 0; i < 8; i++) {
+        // 根据屏幕宽度调整海草数量
+        const seaweedCount = Math.floor(this.width / 100);
+        for (let i = 0; i < seaweedCount; i++) {
             const seaweed = document.createElement('div');
             seaweed.className = 'seaweed';
             
@@ -468,7 +531,7 @@ class Game {
             }
             
             // 随机位置
-            seaweed.style.left = `${50 + (i * 100) + Math.random() * 30}px`;
+            seaweed.style.left = `${(this.width / seaweedCount) * i + Math.random() * 20}px`;
             // 随机高度
             seaweed.style.height = `${80 + Math.random() * 40}px`;
             
@@ -478,13 +541,14 @@ class Game {
     
     // 创建海星
     createStarfish() {
-        // 创建多个海星
-        for (let i = 0; i < 5; i++) {
+        // 根据屏幕宽度调整海星数量
+        const starfishCount = Math.floor(this.width / 150);
+        for (let i = 0; i < starfishCount; i++) {
             const starfish = document.createElement('div');
             starfish.className = 'starfish';
             
             // 固定位置在底部
-            starfish.style.left = `${100 + (i * 150) + Math.random() * 50}px`;
+            starfish.style.left = `${(this.width / starfishCount) * i + Math.random() * 30}px`;
             starfish.style.bottom = '20px';  // 使用 bottom 而不是 transform
             // 随机旋转
             starfish.style.transform = `rotate(${Math.random() * 360}deg)`;
@@ -554,8 +618,9 @@ class Game {
     
     // 添加创建普通鱼的方法
     createFishes() {
-        // 创建10条普通鱼
-        for (let i = 0; i < 10; i++) {
+        // 根据屏幕大小调整鱼的数量
+        const fishCount = Math.floor(this.width / 100);
+        for (let i = 0; i < fishCount; i++) {
             // 跳过章鱼类型
             const fishTypeIndex = 1 + Math.floor(Math.random() * (this.fishTypes.length - 1));
             const fishType = this.fishTypes[fishTypeIndex];
@@ -563,8 +628,8 @@ class Game {
             fishDiv.className = 'fish';
             
             // 设置鱼的基础大小
-            const baseWidth = 50;
-            const baseHeight = 30;
+            const baseWidth = 40;
+            const baseHeight = 24;
             const scale = fishType.size;
             
             fishDiv.style.width = `${baseWidth * scale}px`;
