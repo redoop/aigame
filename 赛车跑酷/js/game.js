@@ -97,6 +97,15 @@ class Game {
             this.camera.updateProjectionMatrix();
             this.renderer.setSize(window.innerWidth, window.innerHeight);
         });
+
+        // 处理屏幕旋转
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                this.camera.aspect = window.innerWidth / window.innerHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+            }, 100);
+        });
     }
 
     setupScoreDisplay() {
@@ -135,6 +144,81 @@ class Game {
                 this.car.isHonking = false;
             }
         });
+
+        // 添加触摸控制
+        this.setupTouchControls();
+        
+        // 添加设备方向控制
+        this.setupDeviceOrientation();
+    }
+
+    setupTouchControls() {
+        const buttons = {
+            'btn-left': 'ArrowLeft',
+            'btn-right': 'ArrowRight',
+            'btn-accelerate': 'ArrowUp',
+            'btn-brake': 'ArrowDown'
+        };
+
+        // 处理触摸事件
+        const handleTouch = (elementId, isPressed) => {
+            const key = buttons[elementId];
+            if (key) {
+                this.keys[key] = isPressed;
+            }
+        };
+
+        // 为每个按钮添加事件监听器
+        Object.keys(buttons).forEach(btnId => {
+            const element = document.getElementById(btnId);
+            if (element) {
+                // 触摸开始
+                element.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    handleTouch(btnId, true);
+                });
+
+                // 触摸结束
+                element.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    handleTouch(btnId, false);
+                });
+
+                // 鼠标事件（用于桌面端测试）
+                element.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    handleTouch(btnId, true);
+                });
+
+                element.addEventListener('mouseup', (e) => {
+                    e.preventDefault();
+                    handleTouch(btnId, false);
+                });
+            }
+        });
+    }
+
+    setupDeviceOrientation() {
+        // 检查设备方向支持
+        if (window.DeviceOrientationEvent) {
+            window.addEventListener('deviceorientation', (e) => {
+                if (e.gamma === null) return; // 如果没有陀螺仪数据，直接返回
+
+                // 将手机倾斜角度转换为转向控制
+                // gamma 是左右倾斜角度
+                const tiltThreshold = 10; // 倾斜阈值
+                if (e.gamma > tiltThreshold) {
+                    this.keys.ArrowLeft = true;
+                    this.keys.ArrowRight = false;
+                } else if (e.gamma < -tiltThreshold) {
+                    this.keys.ArrowLeft = false;
+                    this.keys.ArrowRight = true;
+                } else {
+                    this.keys.ArrowLeft = false;
+                    this.keys.ArrowRight = false;
+                }
+            });
+        }
     }
 
     updateCamera() {
