@@ -26,12 +26,16 @@
     <!-- 添加移动端控制按钮 -->
     <div id="mobile-controls">
         <div class="control-group left">
-            <div class="control-btn" id="btn-left">←</div>
-            <div class="control-btn" id="btn-right">→</div>
+            <div class="control-btn" id="btn-left" ontouchstart="return false;">←</div>
+            <div class="control-btn" id="btn-right" ontouchstart="return false;">→</div>
         </div>
         <div class="control-group right">
-            <div class="control-btn" id="btn-brake">↓</div>
-            <div class="control-btn" id="btn-accelerate">↑</div>
+            <div class="control-btn" id="btn-brake" ontouchstart="return false;">↓</div>
+            <div class="control-btn" id="btn-accelerate" ontouchstart="return false;">↑</div>
+        </div>
+        <!-- 添加射击按钮 -->
+        <div class="control-group shoot">
+            <div class="control-btn" id="btn-shoot" ontouchstart="return false;">🔫</div>
         </div>
     </div>
 

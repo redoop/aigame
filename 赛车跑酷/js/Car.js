@@ -9,6 +9,15 @@ class Car {
         this.createCar();
         this.setupAudio();
         this.isHonking = false;
+        
+        // 添加机枪相关属性
+        this.bullets = [];
+        this.bulletSpeed = 2;
+        this.lastShotTime = 0;
+        this.shootingCooldown = 100;
+        this.isAutoShooting = false;
+        this.autoShootInterval = null;
+        this.createGuns();
     }
 
     setupAudio() {
@@ -87,7 +96,6 @@ class Car {
     updateSounds() {
         // 更新发动机声音
         if (Math.abs(this.speed) > 0.01) {
-            // 发动机声音随速度变化
             this.engineSound.gainNode.gain.value = Math.min(Math.abs(this.speed) / this.maxSpeed, 1) * 0.3;
             this.engineSound.oscillator.frequency.value = 50 + Math.abs(this.speed) * 100;
         } else {
@@ -101,10 +109,9 @@ class Car {
             this.brakeSound.gainNode.gain.value = 0;
         }
 
-        // 更新喇叭声音
+        // 喇叭声音
         if (this.isHonking) {
             this.hornSound.gainNode.gain.value = 0.3;
-            // 添加频率变化使声音更有趣
             this.hornSound.oscillator.frequency.value = 400 + Math.sin(Date.now() * 0.01) * 50;
         } else {
             this.hornSound.gainNode.gain.value = 0;
@@ -269,6 +276,85 @@ class Car {
         this.mesh.position.set(0, 0, 0);
     }
 
+    createGuns() {
+        // 创建左右两个机枪
+        const gunGeometry = new THREE.BoxGeometry(0.2, 0.2, 1);
+        const gunMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 });
+        
+        // 左机枪
+        this.leftGun = new THREE.Mesh(gunGeometry, gunMaterial);
+        this.leftGun.position.set(-0.8, 0.5, 2.2);
+        this.mesh.add(this.leftGun);
+        
+        // 右机枪
+        this.rightGun = new THREE.Mesh(gunGeometry, gunMaterial);
+        this.rightGun.position.set(0.8, 0.5, 2.2);
+        this.mesh.add(this.rightGun);
+    }
+
+    shoot() {
+        const currentTime = Date.now();
+        if (currentTime - this.lastShotTime < this.shootingCooldown) return;
+        
+        this.lastShotTime = currentTime;
+
+        // 创建子弹几何体和材质
+        const bulletGeometry = new THREE.SphereGeometry(0.1, 8, 8);
+        const bulletMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0xffff00,
+            emissive: 0xffff00,
+            emissiveIntensity: 0.5
+        });
+
+        // 从两个机枪发射子弹
+        const gunPositions = [this.leftGun.position, this.rightGun.position];
+        
+        gunPositions.forEach(gunPos => {
+            const bullet = new THREE.Mesh(bulletGeometry, bulletMaterial);
+            
+            // 设置子弹初始位置（相对于车的位置）
+            bullet.position.copy(this.mesh.position);
+            bullet.position.y += gunPos.y;
+            bullet.position.x += Math.sin(this.mesh.rotation.y) * gunPos.z + Math.cos(this.mesh.rotation.y) * gunPos.x;
+            bullet.position.z += Math.cos(this.mesh.rotation.y) * gunPos.z - Math.sin(this.mesh.rotation.y) * gunPos.x;
+
+            // 设置子弹速度方向（基于车的朝向）
+            bullet.userData = {
+                velocity: new THREE.Vector3(
+                    Math.sin(this.mesh.rotation.y) * this.bulletSpeed,
+                    0,
+                    Math.cos(this.mesh.rotation.y) * this.bulletSpeed
+                ),
+                timeCreated: currentTime
+            };
+
+            this.bullets.push(bullet);
+            this.mesh.parent.add(bullet); // 添加到场景中
+        });
+
+        // 播放射击音效
+        this.playShootSound();
+    }
+
+    playShootSound() {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.type = 'square';
+        oscillator.frequency.setValueAtTime(220, audioContext.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(110, audioContext.currentTime + 0.1);
+
+        gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.1);
+    }
+
     update(controls) {
         // 记录是否刹车
         this.isBraking = controls.ArrowUp && controls.ArrowDown;
@@ -299,8 +385,48 @@ class Car {
         this.mesh.position.x += Math.sin(this.mesh.rotation.y) * this.speed;
         this.mesh.position.z += Math.cos(this.mesh.rotation.y) * this.speed;
 
+        // 更新子弹位置
+        this.bullets = this.bullets.filter(bullet => {
+            // 移动子弹
+            bullet.position.add(bullet.userData.velocity);
+            
+            // 检查子弹是否存在超过3秒
+            const age = Date.now() - bullet.userData.timeCreated;
+            if (age > 3000) {
+                this.mesh.parent.remove(bullet);
+                return false;
+            }
+            return true;
+        });
+
+        // 处理射击
+        if (controls.Space) {
+            if (!this.isAutoShooting) {
+                this.isAutoShooting = true;
+                this.shoot(); // 立即射击一次
+                // 设置自动射击定时器
+                this.autoShootInterval = setInterval(() => {
+                    this.shoot();
+                }, this.shootingCooldown);
+            }
+        } else {
+            if (this.isAutoShooting) {
+                this.isAutoShooting = false;
+                // 清除自动射击定时器
+                if (this.autoShootInterval) {
+                    clearInterval(this.autoShootInterval);
+                    this.autoShootInterval = null;
+                }
+            }
+        }
+
         // 更新声音
         this.updateSounds();
+    }
+
+    // 获取当前所有子弹
+    getBullets() {
+        return this.bullets;
     }
 
     // 清理音频资源
@@ -311,5 +437,41 @@ class Car {
             this.hornSound.oscillator.stop();
             this.audioContext.close();
         }
+        
+        // 清理所有子弹
+        this.bullets.forEach(bullet => {
+            if (bullet.parent) {
+                bullet.parent.remove(bullet);
+            }
+        });
+        this.bullets = [];
+        
+        // 清理自动射击定时器
+        if (this.autoShootInterval) {
+            clearInterval(this.autoShootInterval);
+            this.autoShootInterval = null;
+        }
+    }
+
+    setupControls() {
+        document.addEventListener('keydown', (e) => {
+            if (this.keys.hasOwnProperty(e.key)) {
+                this.keys[e.key] = true;
+            }
+            // 喇叭使用 'H' 键
+            if (e.code === 'KeyH') {
+                this.isHonking = true;
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (this.keys.hasOwnProperty(e.key)) {
+                this.keys[e.key] = false;
+            }
+            // 喇叭使用 'H' 键
+            if (e.code === 'KeyH') {
+                this.isHonking = false;
+            }
+        });
     }
 } 
