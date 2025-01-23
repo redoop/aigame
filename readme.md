@@ -8,3 +8,4 @@ ai game
 - [人体大冒险](./人体大冒险/index.html)
 - [小丑鱼游戏](./小丑鱼游戏/index.html)
 - [赛车跑酷](./赛车跑酷/index.html)
+- [屎壳郎的日记](./屎壳郎的日记/index.html)
