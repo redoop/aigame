@@ -2,8 +2,9 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>草原赛车</title>
+    <link rel="stylesheet" href="styles.css">
     <style>
         body { margin: 0; }
         #score {
@@ -21,6 +22,19 @@
 </head>
 <body>
     <div id="score">得分: <span id="score-value">0</span></div>
+    
+    <!-- 添加移动端控制按钮 -->
+    <div id="mobile-controls">
+        <div class="control-group left">
+            <div class="control-btn" id="btn-left">←</div>
+            <div class="control-btn" id="btn-right">→</div>
+        </div>
+        <div class="control-group right">
+            <div class="control-btn" id="btn-brake">↓</div>
+            <div class="control-btn" id="btn-accelerate">↑</div>
+        </div>
+    </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.159.0/three.min.js"></script>
     <script src="js/Star.js"></script>
     <script src="js/Car.js"></script>
