@@ -128,20 +128,18 @@ class Game {
         };
 
         document.addEventListener('keydown', (e) => {
-            if (this.keys.hasOwnProperty(e.key)) {
-                this.keys[e.key] = true;
-            }
             if (e.code === 'Space') {
-                this.car.isHonking = true;
+                this.keys.Space = true;
+            } else if (this.keys.hasOwnProperty(e.key)) {
+                this.keys[e.key] = true;
             }
         });
 
         document.addEventListener('keyup', (e) => {
-            if (this.keys.hasOwnProperty(e.key)) {
-                this.keys[e.key] = false;
-            }
             if (e.code === 'Space') {
-                this.car.isHonking = false;
+                this.keys.Space = false;
+            } else if (this.keys.hasOwnProperty(e.key)) {
+                this.keys[e.key] = false;
             }
         });
 
@@ -157,7 +155,8 @@ class Game {
             'btn-left': 'ArrowLeft',
             'btn-right': 'ArrowRight',
             'btn-accelerate': 'ArrowUp',
-            'btn-brake': 'ArrowDown'
+            'btn-brake': 'ArrowDown',
+            'btn-shoot': 'Space'
         };
 
         // 处理触摸事件
@@ -172,17 +171,24 @@ class Game {
         Object.keys(buttons).forEach(btnId => {
             const element = document.getElementById(btnId);
             if (element) {
-                // 触摸开始
+                // 触摸事件
                 element.addEventListener('touchstart', (e) => {
                     e.preventDefault();
+                    e.stopPropagation();
                     handleTouch(btnId, true);
-                });
+                }, { passive: false });
 
-                // 触摸结束
                 element.addEventListener('touchend', (e) => {
                     e.preventDefault();
+                    e.stopPropagation();
                     handleTouch(btnId, false);
-                });
+                }, { passive: false });
+
+                element.addEventListener('touchcancel', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleTouch(btnId, false);
+                }, { passive: false });
 
                 // 鼠标事件（用于桌面端测试）
                 element.addEventListener('mousedown', (e) => {
@@ -194,8 +200,20 @@ class Game {
                     e.preventDefault();
                     handleTouch(btnId, false);
                 });
+
+                element.addEventListener('mouseleave', (e) => {
+                    e.preventDefault();
+                    handleTouch(btnId, false);
+                });
             }
         });
+
+        // 防止页面滚动
+        document.addEventListener('touchmove', (e) => {
+            if (e.target.closest('#mobile-controls')) {
+                e.preventDefault();
+            }
+        }, { passive: false });
     }
 
     setupDeviceOrientation() {
@@ -264,6 +282,12 @@ class Game {
             this.score.checkpoints += result;
             this.scoreElement.textContent = this.score.checkpoints;
         }
+
+        // 检查车辆与动物的碰撞
+        this.nature.checkCollisions(this.car);
+
+        // 检查子弹碰撞
+        this.nature.checkBulletCollisions(this.car.getBullets());
     }
 
     playStarCollectSound() {

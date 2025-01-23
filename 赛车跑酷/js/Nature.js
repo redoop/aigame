@@ -1,10 +1,19 @@
 class Nature {
     constructor() {
         this.mesh = new THREE.Group();
+        
+        // 添加动物、树木和蒙古包数组用于跟踪
+        this.animals = {
+            sheep: [],
+            cows: []
+        };
+        this.trees = [];
+        this.yurts = [];  // 添加蒙古包数组
+        
         this.createSky();
         this.createGrass();
         this.createYurts();
-        this.createAnimals();
+        this.createAnimals();  // 现在 createAnimals 可以正确添加动物到数组中
         this.createFlowers();
         this.createGinkgoTrees();
         this.createRoses();
@@ -100,6 +109,17 @@ class Nature {
                 Math.sin(angle) * radius
             );
             yurt.rotation.y = Math.random() * Math.PI * 2;
+
+            // 添加物理属性
+            yurt.userData = {
+                isFlying: false,
+                velocity: new THREE.Vector3(),
+                rotationVelocity: new THREE.Vector3(),
+                originalPosition: yurt.position.clone(),
+                originalRotation: yurt.rotation.clone()
+            };
+
+            this.yurts.push(yurt);
             this.mesh.add(yurt);
         }
     }
@@ -144,6 +164,13 @@ class Nature {
                 Math.sin(angle) * radius
             );
             sheep.rotation.y = Math.random() * Math.PI * 2;
+            sheep.userData = {
+                type: 'sheep',
+                velocity: new THREE.Vector3(),
+                isFlying: false,
+                rotationVelocity: new THREE.Vector3()
+            };
+            this.animals.sheep.push(sheep);
             this.mesh.add(sheep);
         }
 
@@ -158,6 +185,13 @@ class Nature {
                 Math.sin(angle) * radius
             );
             cow.rotation.y = Math.random() * Math.PI * 2;
+            cow.userData = {
+                type: 'cow',
+                velocity: new THREE.Vector3(),
+                isFlying: false,
+                rotationVelocity: new THREE.Vector3()
+            };
+            this.animals.cows.push(cow);
             this.mesh.add(cow);
         }
     }
@@ -280,16 +314,295 @@ class Nature {
         return flower;
     }
 
+    checkCollisions(car) {
+        const carPosition = car.mesh.position;
+        const carVelocity = car.speed;
+        const collisionDistance = 5; // 增加碰撞检测距离
+        
+        // 检查所有动物
+        [...this.animals.sheep, ...this.animals.cows].forEach(animal => {
+            if (!animal.userData.isFlying) {
+                const distance = animal.position.distanceTo(carPosition);
+                
+                if (distance < collisionDistance) {
+                    // 增加撞击效果
+                    const direction = new THREE.Vector3()
+                        .subVectors(animal.position, carPosition)
+                        .normalize();
+                    
+                    // 增加撞击力
+                    const impactForce = Math.abs(carVelocity) * 3;  // 增加基础力度
+                    const upwardForce = animal.userData.type === 'cow' ? 0.5 : 0.8; // 增加上升力
+                    
+                    // 设置动物的速度
+                    animal.userData.velocity.set(
+                        direction.x * impactForce,
+                        upwardForce * impactForce,
+                        direction.z * impactForce
+                    );
+                    
+                    // 增加旋转速度
+                    animal.userData.rotationVelocity.set(
+                        (Math.random() - 0.5) * 0.4,  // 增加旋转速度
+                        (Math.random() - 0.5) * 0.4,
+                        (Math.random() - 0.5) * 0.4
+                    );
+                    
+                    animal.userData.isFlying = true;
+                    this.playCollisionSound(animal.userData.type);
+                }
+            }
+        });
+
+        // 检查与树的碰撞
+        const treeCollisionDistance = 8; // 碰撞检测距离
+        
+        this.trees.forEach(tree => {
+            if (!tree.userData.isFalling) {
+                const distance = tree.position.distanceTo(carPosition);
+                
+                if (distance < treeCollisionDistance && Math.abs(carVelocity) > 0.5) {
+                    // 计算倒下的方向（基于撞击方向）
+                    const direction = new THREE.Vector3()
+                        .subVectors(tree.position, carPosition)
+                        .normalize();
+                    
+                    // 设置树木倒下的参数
+                    tree.userData.isFalling = true;
+                    tree.userData.fallDirection.copy(direction);
+                    tree.userData.fallSpeed = Math.abs(carVelocity) * 0.05;
+                    tree.userData.fallProgress = 0;
+                    
+                    // 播放倒树音效
+                    this.playTreeFallSound();
+                }
+            }
+        });
+
+        // 检查与蒙古包的碰撞
+        const yurtCollisionDistance = 10; // 碰撞检测距离
+        
+        this.yurts.forEach(yurt => {
+            if (!yurt.userData.isFlying) {
+                const distance = yurt.position.distanceTo(carPosition);
+                
+                if (distance < yurtCollisionDistance && Math.abs(carVelocity) > 1.0) {
+                    // 计算撞击方向和力度
+                    const direction = new THREE.Vector3()
+                        .subVectors(yurt.position, carPosition)
+                        .normalize();
+                    
+                    // 设置蒙古包的速度
+                    const impactForce = Math.abs(carVelocity) * 2;
+                    yurt.userData.velocity.set(
+                        direction.x * impactForce,
+                        1.0, // 上升力
+                        direction.z * impactForce
+                    );
+                    
+                    // 设置旋转速度
+                    yurt.userData.rotationVelocity.set(
+                        (Math.random() - 0.5) * 0.2,
+                        (Math.random() - 0.5) * 0.2,
+                        (Math.random() - 0.5) * 0.2
+                    );
+                    
+                    yurt.userData.isFlying = true;
+                    
+                    // 播放撞击音效
+                    this.playYurtCollisionSound();
+                }
+            }
+        });
+    }
+
+    playCollisionSound(animalType) {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        // 根据动物类型设置不同的音效
+        if (animalType === 'sheep') {
+            oscillator.type = 'square';
+            oscillator.frequency.setValueAtTime(400, audioContext.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(200, audioContext.currentTime + 0.2);
+        } else {
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 0.3);
+        }
+
+        gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.3);
+    }
+
+    playTreeFallSound() {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        // 设置倒树的音效
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(50, audioContext.currentTime + 0.5);
+
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.5);
+    }
+
+    playYurtCollisionSound() {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        // 设置撞击音效
+        oscillator.type = 'square';
+        oscillator.frequency.setValueAtTime(100, audioContext.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(50, audioContext.currentTime + 0.5);
+
+        gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.5);
+    }
+
     update() {
-        // 动物随机移动
-        this.mesh.children.forEach(child => {
-            if (child.isSheep || child.isCow) {
+        const gravity = -0.015;
+        const groundLevel = 0;
+        const friction = 0.98;
+
+        // 更新所有动物的位置
+        [...this.animals.sheep, ...this.animals.cows].forEach(animal => {
+            if (animal.userData.isFlying) {
+                // 更新位置
+                animal.position.add(animal.userData.velocity);
+                
+                // 应用重力
+                animal.userData.velocity.y += gravity;
+                
+                // 应用空气阻力
+                animal.userData.velocity.multiplyScalar(friction);
+                
+                // 更新旋转
+                animal.rotation.x += animal.userData.rotationVelocity.x;
+                animal.rotation.y += animal.userData.rotationVelocity.y;
+                animal.rotation.z += animal.userData.rotationVelocity.z;
+
+                // 检查是否落地
+                if (animal.position.y <= groundLevel && animal.userData.velocity.y < 0) {
+                    animal.position.y = groundLevel;
+                    animal.userData.velocity.set(0, 0, 0);
+                    animal.userData.rotationVelocity.set(0, 0, 0);
+                    animal.userData.isFlying = false;
+                    
+                    // 重置旋转（让动物站立）
+                    animal.rotation.x = 0;
+                    animal.rotation.z = 0;
+                }
+            } else {
+                // 正常的动物移动逻辑
                 if (Math.random() < 0.01) {
-                    child.rotation.y += (Math.random() - 0.5) * 0.1;
+                    animal.rotation.y += (Math.random() - 0.5) * 0.1;
                 }
                 const speed = 0.05;
-                child.position.x += Math.sin(child.rotation.y) * speed;
-                child.position.z += Math.cos(child.rotation.y) * speed;
+                animal.position.x += Math.sin(animal.rotation.y) * speed;
+                animal.position.z += Math.cos(animal.rotation.y) * speed;
+            }
+        });
+
+        // 更新树木
+        this.trees.forEach(tree => {
+            if (tree.userData.isFalling) {
+                // 更新倒下的进度
+                tree.userData.fallProgress += tree.userData.fallSpeed;
+                
+                if (tree.userData.fallProgress < Math.PI / 2) {
+                    // 计算倾斜角度
+                    const fallAngle = tree.userData.fallProgress;
+                    
+                    // 应用旋转
+                    const rotationAxis = new THREE.Vector3(
+                        -tree.userData.fallDirection.z,
+                        0,
+                        tree.userData.fallDirection.x
+                    ).normalize();
+                    
+                    // 创建四元数进行旋转
+                    const quaternion = new THREE.Quaternion();
+                    quaternion.setFromAxisAngle(rotationAxis, fallAngle);
+                    
+                    // 应用旋转
+                    tree.setRotationFromQuaternion(quaternion);
+                    
+                    // 稍微移动树的位置以模拟自然的倒下效果
+                    const displacement = new THREE.Vector3()
+                        .copy(tree.userData.fallDirection)
+                        .multiplyScalar(Math.sin(fallAngle) * 2);
+                    
+                    tree.position.add(displacement);
+                }
+                
+                // 当树完全倒下时，停止更新
+                if (tree.userData.fallProgress >= Math.PI / 2) {
+                    tree.userData.isFalling = false;
+                }
+            }
+        });
+
+        // 更新蒙古包
+        this.yurts.forEach(yurt => {
+            if (yurt.userData.isFlying) {
+                // 更新位置
+                yurt.position.add(yurt.userData.velocity);
+                
+                // 应用重力
+                yurt.userData.velocity.y += gravity;
+                
+                // 应用空气阻力
+                yurt.userData.velocity.multiplyScalar(friction);
+                
+                // 更新旋转
+                yurt.rotation.x += yurt.userData.rotationVelocity.x;
+                yurt.rotation.y += yurt.userData.rotationVelocity.y;
+                yurt.rotation.z += yurt.userData.rotationVelocity.z;
+
+                // 检查是否落地
+                if (yurt.position.y <= groundLevel && yurt.userData.velocity.y < 0) {
+                    // 缓慢恢复到原始位置和旋转
+                    const lerpFactor = 0.05;
+                    yurt.position.lerp(yurt.userData.originalPosition, lerpFactor);
+                    
+                    // 使用四元数进行旋转插值
+                    const currentRotation = new THREE.Quaternion().setFromEuler(yurt.rotation);
+                    const targetRotation = new THREE.Quaternion().setFromEuler(yurt.userData.originalRotation);
+                    currentRotation.slerp(targetRotation, lerpFactor);
+                    yurt.setRotationFromQuaternion(currentRotation);
+
+                    // 检查是否已经足够接近原始位置
+                    if (yurt.position.distanceTo(yurt.userData.originalPosition) < 0.1) {
+                        yurt.position.copy(yurt.userData.originalPosition);
+                        yurt.rotation.copy(yurt.userData.originalRotation);
+                        yurt.userData.isFlying = false;
+                        yurt.userData.velocity.set(0, 0, 0);
+                        yurt.userData.rotationVelocity.set(0, 0, 0);
+                    }
+                }
             }
         });
     }
@@ -308,6 +621,17 @@ class Nature {
             tree.rotation.y = Math.random() * Math.PI * 2;
             const scale = 1 + Math.random() * 0.5;
             tree.scale.set(scale, scale, scale);
+            
+            // 添加物理属性
+            tree.userData = {
+                isFalling: false,
+                fallDirection: new THREE.Vector3(),
+                fallSpeed: 0,
+                originalRotation: tree.rotation.clone(),
+                fallProgress: 0
+            };
+            
+            this.trees.push(tree);
             this.mesh.add(tree);
         }
     }
@@ -453,5 +777,65 @@ class Nature {
         }
 
         return rose;
+    }
+
+    checkBulletCollisions(bullets) {
+        bullets.forEach(bullet => {
+            // 检查与动物的碰撞
+            [...this.animals.sheep, ...this.animals.cows].forEach(animal => {
+                if (!animal.userData.isFlying) {
+                    const distance = bullet.position.distanceTo(animal.position);
+                    if (distance < 2) { // 子弹碰撞距离
+                        // 设置动物飞行状态
+                        const direction = new THREE.Vector3()
+                            .subVectors(animal.position, bullet.position)
+                            .normalize();
+                        
+                        // 设置动物的速度
+                        animal.userData.velocity.set(
+                            direction.x * 1.5,
+                            1.2, // 上升力
+                            direction.z * 1.5
+                        );
+                        
+                        // 添加旋转
+                        animal.userData.rotationVelocity.set(
+                            (Math.random() - 0.5) * 0.4,
+                            (Math.random() - 0.5) * 0.4,
+                            (Math.random() - 0.5) * 0.4
+                        );
+                        
+                        animal.userData.isFlying = true;
+                        
+                        // 移除子弹
+                        if (bullet.parent) {
+                            bullet.parent.remove(bullet);
+                        }
+                        
+                        // 播放击中音效
+                        this.playBulletHitSound();
+                    }
+                }
+            });
+        });
+    }
+
+    playBulletHitSound() {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(220, audioContext.currentTime + 0.2);
+
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.2);
     }
 } 
