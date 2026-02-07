@@ -15,6 +15,11 @@ ai game
   - [注意力竞技场 - Attention机制](./姚班游戏系列/注意力竞技场/index.html)
   - [语言模型炼金术 - LLM训练模拟](./姚班游戏系列/语言模型炼金术/index.html)
 
+### 第三阶段：前沿应用 (已完成)
+  - [提示工程实验室 - Prompt Engineering](./姚班游戏系列/提示工程实验室/index.html)
+  - [强化学习竞技场 - Reinforcement Learning](./姚班游戏系列/强化学习竞技场/index.html)
+  - [多模态融合 - Multimodal Fusion](./姚班游戏系列/多模态融合/index.html)
+
 详见：[姚班理念游戏系列策划案](./姚班理念游戏系列策划案.md)
 
 ## 备份游戏

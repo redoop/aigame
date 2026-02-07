@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>提示工程实验室 - Prompt Engineering</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎯 提示工程实验室</h1>
+            <p class="subtitle">掌握与AI对话的艺术</p>
+        </header>
+
+        <div class="game-area">
+            <div class="main-section">
+                <div class="task-panel">
+                    <h3>当前任务</h3>
+                    <div class="task-card" id="taskCard">
+                        <div class="task-title">选择一个任务开始</div>
+                        <div class="task-desc"></div>
+                        <div class="task-goal"></div>
+                    </div>
+                </div>
+
+                <div class="prompt-editor">
+                    <h3>提示词编辑器</h3>
+                    <div class="editor-toolbar">
+                        <button class="tool-btn" data-tool="role">添加角色</button>
+                        <button class="tool-btn" data-tool="context">添加上下文</button>
+                        <button class="tool-btn" data-tool="example">添加示例</button>
+                        <button class="tool-btn" data-tool="constraint">添加约束</button>
+                    </div>
+                    <textarea id="promptInput" placeholder="在这里编写你的提示词..."></textarea>
+                    <div class="prompt-stats">
+                        <span>字符数: <strong id="charCount">0</strong></span>
+                        <span>Token估算: <strong id="tokenCount">0</strong></span>
+                    </div>
+                    <button id="submitBtn" class="btn-primary">提交测试</button>
+                </div>
+
+                <div class="response-panel">
+                    <h3>AI响应</h3>
+                    <div class="response-box" id="responseBox">
+                        提交提示词后查看AI响应...
+                    </div>
+                    <div class="evaluation" id="evaluation"></div>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <div class="level-section">
+                    <h3>关卡选择</h3>
+                    <div class="level-list">
+                        <button class="level-btn active" data-level="1">
+                            <span class="level-icon">📝</span>
+                            <div class="level-info">
+                                <div class="level-name">基础提示</div>
+                                <div class="level-desc">学习基本提示结构</div>
+                            </div>
+                        </button>
+                        <button class="level-btn" data-level="2">
+                            <span class="level-icon">🎭</span>
+                            <div class="level-info">
+                                <div class="level-name">角色扮演</div>
+                                <div class="level-desc">让AI扮演特定角色</div>
+                            </div>
+                        </button>
+                        <button class="level-btn" data-level="3">
+                            <span class="level-icon">💡</span>
+                            <div class="level-info">
+                                <div class="level-name">Few-Shot学习</div>
+                                <div class="level-desc">通过示例引导AI</div>
+                            </div>
+                        </button>
+                        <button class="level-btn" data-level="4">
+                            <span class="level-icon">🧠</span>
+                            <div class="level-info">
+                                <div class="level-name">思维链</div>
+                                <div class="level-desc">让AI展示推理过程</div>
+                            </div>
+                        </button>
+                        <button class="level-btn" data-level="5">
+                            <span class="level-icon">🔧</span>
+                            <div class="level-info">
+                                <div class="level-name">工具使用</div>
+                                <div class="level-desc">Function Calling</div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="template-section">
+                    <h3>提示词模板</h3>
+                    <div class="template-list">
+                        <button class="template-btn" data-template="basic">基础模板</button>
+                        <button class="template-btn" data-template="role">角色模板</button>
+                        <button class="template-btn" data-template="fewshot">Few-Shot模板</button>
+                        <button class="template-btn" data-template="cot">思维链模板</button>
+                    </div>
+                </div>
+
+                <div class="tips-section">
+                    <h3>提示工程技巧</h3>
+                    <div class="tips-list">
+                        <div class="tip-item">
+                            <span class="tip-icon">✅</span>
+                            <span class="tip-text">明确具体的指令</span>
+                        </div>
+                        <div class="tip-item">
+                            <span class="tip-icon">✅</span>
+                            <span class="tip-text">提供充分的上下文</span>
+                        </div>
+                        <div class="tip-item">
+                            <span class="tip-icon">✅</span>
+                            <span class="tip-text">使用示例引导</span>
+                        </div>
+                        <div class="tip-item">
+                            <span class="tip-icon">✅</span>
+                            <span class="tip-text">设定输出格式</span>
+                        </div>
+                        <div class="tip-item">
+                            <span class="tip-icon">✅</span>
+                            <span class="tip-text">分步骤思考</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="score-section">
+                    <h3>评分标准</h3>
+                    <div class="score-grid">
+                        <div class="score-item">
+                            <span class="score-label">准确性:</span>
+                            <div class="score-bar">
+                                <div class="score-fill" id="accuracy" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="score-item">
+                            <span class="score-label">完整性:</span>
+                            <div class="score-bar">
+                                <div class="score-fill" id="completeness" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="score-item">
+                            <span class="score-label">效率:</span>
+                            <div class="score-bar">
+                                <div class="score-fill" id="efficiency" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="total-score">
+                        总分: <span id="totalScore">0</span>/100
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tutorial">
+            <h3>💡 游戏说明</h3>
+            <ul>
+                <li><strong>目标:</strong> 学习如何编写高质量的提示词</li>
+                <li><strong>Zero-Shot:</strong> 不提供示例，直接描述任务</li>
+                <li><strong>Few-Shot:</strong> 提供几个示例，让AI学习模式</li>
+                <li><strong>Chain-of-Thought:</strong> 引导AI展示推理步骤</li>
+                <li><strong>角色设定:</strong> 让AI扮演专家角色</li>
+            </ul>
+            
+            <div class="concepts">
+                <h4>🔑 核心概念</h4>
+                <p><strong>System Prompt:</strong> 设定AI的角色和行为规则</p>
+                <p><strong>User Prompt:</strong> 具体的任务指令</p>
+                <p><strong>上下文学习:</strong> AI从提示中学习而非训练</p>
+                <p><strong>温度参数:</strong> 控制输出的随机性</p>
+            </div>
+            
+            <div class="examples">
+                <h4>📖 优秀提示词示例</h4>
+                <div class="example-box">
+                    <strong>差:</strong> "写一篇文章"<br>
+                    <strong>好:</strong> "作为一名科技记者，写一篇800字的文章，介绍人工智能在医疗领域的应用，包括3个具体案例，面向普通读者。"
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

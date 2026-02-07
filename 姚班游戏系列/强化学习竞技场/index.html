@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>强化学习竞技场 - 姚班游戏系列</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎮 强化学习竞技场</h1>
+            <p class="subtitle">Reinforcement Learning Arena - 训练智能体通过奖励学习最优策略</p>
+        </header>
+
+        <div class="game-area">
+            <div class="main-section">
+                <div class="canvas-panel">
+                    <h3>🏃 训练环境</h3>
+                    <canvas id="gameCanvas" width="800" height="600"></canvas>
+                    <div class="controls">
+                        <button id="startBtn" class="btn-primary">开始训练</button>
+                        <button id="pauseBtn" class="btn-secondary">暂停</button>
+                        <button id="resetBtn" class="btn-secondary">重置</button>
+                        <button id="testBtn" class="btn-test">测试智能体</button>
+                    </div>
+                </div>
+
+                <div class="stats-panel">
+                    <h3>📊 训练统计</h3>
+                    <div class="stat-grid">
+                        <div class="stat-item">
+                            <div class="stat-label">回合数</div>
+                            <div class="stat-value" id="episode">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">总奖励</div>
+                            <div class="stat-value" id="totalReward">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">平均奖励</div>
+                            <div class="stat-value" id="avgReward">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">成功率</div>
+                            <div class="stat-value" id="successRate">0%</div>
+                        </div>
+                    </div>
+                    <canvas id="rewardChart" width="760" height="200"></canvas>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <div class="env-section">
+                    <h3>🌍 环境选择</h3>
+                    <div class="env-list">
+                        <button class="env-btn active" data-env="grid">
+                            <span class="env-icon">🎯</span>
+                            <div class="env-info">
+                                <div class="env-name">网格世界</div>
+                                <div class="env-desc">找到宝藏，避开陷阱</div>
+                            </div>
+                        </button>
+                        <button class="env-btn" data-env="cliff">
+                            <span class="env-icon">⛰️</span>
+                            <div class="env-info">
+                                <div class="env-name">悬崖行走</div>
+                                <div class="env-desc">沿悬崖边缘到达目标</div>
+                            </div>
+                        </button>
+                        <button class="env-btn" data-env="maze">
+                            <span class="env-icon">🧩</span>
+                            <div class="env-info">
+                                <div class="env-name">迷宫探索</div>
+                                <div class="env-desc">在迷宫中找到出口</div>
+                            </div>
+                        </button>
+                        <button class="env-btn" data-env="rlhf">
+                            <span class="env-icon">🤖</span>
+                            <div class="env-info">
+                                <div class="env-name">RLHF对话</div>
+                                <div class="env-desc">学习人类偏好反馈</div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="algo-section">
+                    <h3>🧠 算法选择</h3>
+                    <select id="algoSelect" class="select-box">
+                        <option value="qlearning">Q-Learning</option>
+                        <option value="sarsa">SARSA</option>
+                        <option value="ppo">PPO (简化版)</option>
+                    </select>
+                </div>
+
+                <div class="param-section">
+                    <h3>⚙️ 超参数</h3>
+                    <div class="param-item">
+                        <label>学习率 (α): <span id="lrValue">0.1</span></label>
+                        <input type="range" id="learningRate" min="0.01" max="0.5" step="0.01" value="0.1">
+                    </div>
+                    <div class="param-item">
+                        <label>折扣因子 (γ): <span id="gammaValue">0.9</span></label>
+                        <input type="range" id="gamma" min="0.5" max="0.99" step="0.01" value="0.9">
+                    </div>
+                    <div class="param-item">
+                        <label>探索率 (ε): <span id="epsilonValue">0.3</span></label>
+                        <input type="range" id="epsilon" min="0" max="1" step="0.05" value="0.3">
+                    </div>
+                    <div class="param-item">
+                        <label>训练速度: <span id="speedValue">正常</span></label>
+                        <input type="range" id="speed" min="1" max="5" step="1" value="3">
+                    </div>
+                </div>
+
+                <div class="reward-section">
+                    <h3>🎁 奖励设计</h3>
+                    <div class="reward-config">
+                        <div class="reward-item">
+                            <label>目标奖励:</label>
+                            <input type="number" id="goalReward" value="100" class="reward-input">
+                        </div>
+                        <div class="reward-item">
+                            <label>陷阱惩罚:</label>
+                            <input type="number" id="trapPenalty" value="-50" class="reward-input">
+                        </div>
+                        <div class="reward-item">
+                            <label>步数惩罚:</label>
+                            <input type="number" id="stepPenalty" value="-1" class="reward-input">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="policy-section">
+                    <h3>📋 策略可视化</h3>
+                    <div class="policy-display" id="policyDisplay">
+                        训练后显示学到的策略...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tutorial">
+            <h3>📚 强化学习原理</h3>
+            
+            <div class="concepts">
+                <h4>核心概念</h4>
+                <p><strong>智能体 (Agent):</strong> 学习做决策的实体</p>
+                <p><strong>环境 (Environment):</strong> 智能体交互的世界</p>
+                <p><strong>状态 (State):</strong> 环境的当前情况</p>
+                <p><strong>动作 (Action):</strong> 智能体可以执行的操作</p>
+                <p><strong>奖励 (Reward):</strong> 环境对动作的反馈信号</p>
+                <p><strong>策略 (Policy):</strong> 从状态到动作的映射</p>
+                <p><strong>价值函数 (Value Function):</strong> 预测未来累积奖励</p>
+            </div>
+
+            <div class="algorithms">
+                <h4>算法对比</h4>
+                <p><strong>Q-Learning:</strong> Off-policy，学习最优Q值，探索性强</p>
+                <p><strong>SARSA:</strong> On-policy，学习当前策略的Q值，更保守</p>
+                <p><strong>PPO:</strong> 策略梯度方法，适合连续动作空间</p>
+            </div>
+
+            <div class="rlhf-info">
+                <h4>RLHF (人类反馈强化学习)</h4>
+                <p><strong>应用场景:</strong> ChatGPT等大语言模型的对齐训练</p>
+                <p><strong>核心思想:</strong> 用人类偏好作为奖励信号，训练模型生成更符合人类期望的输出</p>
+                <p><strong>三个阶段:</strong></p>
+                <ul>
+                    <li>1. 预训练：在大规模文本上训练基础模型</li>
+                    <li>2. 奖励建模：收集人类偏好数据，训练奖励模型</li>
+                    <li>3. RL微调：用PPO等算法根据奖励模型优化策略</li>
+                </ul>
+            </div>
+
+            <div class="tips">
+                <h4>训练技巧</h4>
+                <ul>
+                    <li>💡 <strong>探索与利用平衡:</strong> 高ε值多探索，低ε值多利用已知策略</li>
+                    <li>💡 <strong>学习率调整:</strong> 初期可用较高学习率快速学习，后期降低以稳定</li>
+                    <li>💡 <strong>奖励塑形:</strong> 合理设计奖励函数是成功的关键</li>
+                    <li>💡 <strong>折扣因子:</strong> 高γ值重视长期奖励，低γ值重视即时奖励</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

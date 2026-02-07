@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多模态融合 - 姚班游戏系列</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎨 多模态融合</h1>
+            <p class="subtitle">Multimodal Fusion - 融合视觉、文本、音频信息的AI系统</p>
+        </header>
+
+        <div class="game-area">
+            <div class="main-section">
+                <div class="input-panel">
+                    <h3>📥 多模态输入</h3>
+                    <div class="modality-grid">
+                        <div class="modality-box">
+                            <div class="modality-header">
+                                <span class="modality-icon">🖼️</span>
+                                <span class="modality-title">视觉 (Vision)</span>
+                            </div>
+                            <canvas id="visionCanvas" width="300" height="300"></canvas>
+                            <div class="modality-controls">
+                                <button class="draw-btn" data-shape="cat">🐱 猫</button>
+                                <button class="draw-btn" data-shape="dog">🐕 狗</button>
+                                <button class="draw-btn" data-shape="car">🚗 车</button>
+                                <button class="draw-btn" data-shape="tree">🌲 树</button>
+                            </div>
+                        </div>
+
+                        <div class="modality-box">
+                            <div class="modality-header">
+                                <span class="modality-icon">📝</span>
+                                <span class="modality-title">文本 (Text)</span>
+                            </div>
+                            <textarea id="textInput" placeholder="输入文本描述...&#10;例如：一只可爱的橙色猫咪坐在草地上"></textarea>
+                            <div class="modality-controls">
+                                <button class="preset-btn" data-text="一只可爱的橙色猫咪">猫咪描述</button>
+                                <button class="preset-btn" data-text="一辆红色的跑车">跑车描述</button>
+                            </div>
+                        </div>
+
+                        <div class="modality-box">
+                            <div class="modality-header">
+                                <span class="modality-icon">🎵</span>
+                                <span class="modality-title">音频 (Audio)</span>
+                            </div>
+                            <canvas id="audioCanvas" width="300" height="150"></canvas>
+                            <div class="modality-controls">
+                                <button class="audio-btn" data-sound="meow">喵 🐱</button>
+                                <button class="audio-btn" data-sound="bark">汪 🐕</button>
+                                <button class="audio-btn" data-sound="horn">喇叭 🚗</button>
+                                <button class="audio-btn" data-sound="wind">风声 🌲</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="fusion-panel">
+                    <h3>🔄 融合过程</h3>
+                    <div class="fusion-flow">
+                        <div class="encoder-section">
+                            <div class="encoder-box">
+                                <div class="encoder-title">视觉编码器</div>
+                                <div class="feature-viz" id="visionFeatures"></div>
+                            </div>
+                            <div class="encoder-box">
+                                <div class="encoder-title">文本编码器</div>
+                                <div class="feature-viz" id="textFeatures"></div>
+                            </div>
+                            <div class="encoder-box">
+                                <div class="encoder-title">音频编码器</div>
+                                <div class="feature-viz" id="audioFeatures"></div>
+                            </div>
+                        </div>
+                        <div class="fusion-arrow">⬇️</div>
+                        <div class="fusion-method" id="fusionMethod">
+                            <div class="method-title">融合策略</div>
+                            <div class="method-content">等待融合...</div>
+                        </div>
+                        <div class="fusion-arrow">⬇️</div>
+                        <div class="output-section">
+                            <div class="output-box">
+                                <div class="output-title">融合特征</div>
+                                <canvas id="fusionCanvas" width="600" height="100"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <button id="fuseBtn" class="btn-primary">🚀 执行融合</button>
+                </div>
+
+                <div class="result-panel">
+                    <h3>🎯 融合结果</h3>
+                    <div class="result-display" id="resultDisplay">
+                        <div class="result-placeholder">执行融合后查看结果...</div>
+                    </div>
+                    <div class="confidence-bars" id="confidenceBars"></div>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <div class="task-section">
+                    <h3>🎮 任务选择</h3>
+                    <div class="task-list">
+                        <button class="task-btn active" data-task="classification">
+                            <span class="task-icon">🏷️</span>
+                            <div class="task-info">
+                                <div class="task-name">多模态分类</div>
+                                <div class="task-desc">识别物体类别</div>
+                            </div>
+                        </button>
+                        <button class="task-btn" data-task="retrieval">
+                            <span class="task-icon">🔍</span>
+                            <div class="task-info">
+                                <div class="task-name">跨模态检索</div>
+                                <div class="task-desc">文本搜索图像</div>
+                            </div>
+                        </button>
+                        <button class="task-btn" data-task="generation">
+                            <span class="task-icon">✨</span>
+                            <div class="task-info">
+                                <div class="task-name">多模态生成</div>
+                                <div class="task-desc">图文生成</div>
+                            </div>
+                        </button>
+                        <button class="task-btn" data-task="vqa">
+                            <span class="task-icon">❓</span>
+                            <div class="task-info">
+                                <div class="task-name">视觉问答</div>
+                                <div class="task-desc">回答图像问题</div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="method-section">
+                    <h3>🔧 融合方法</h3>
+                    <select id="methodSelect" class="select-box">
+                        <option value="early">早期融合 (Early Fusion)</option>
+                        <option value="late">晚期融合 (Late Fusion)</option>
+                        <option value="attention">注意力融合 (Attention)</option>
+                        <option value="transformer">Transformer融合</option>
+                    </select>
+                </div>
+
+                <div class="weight-section">
+                    <h3>⚖️ 模态权重</h3>
+                    <div class="weight-item">
+                        <label>视觉权重: <span id="visionWeight">0.33</span></label>
+                        <input type="range" id="visionSlider" min="0" max="1" step="0.1" value="0.33">
+                    </div>
+                    <div class="weight-item">
+                        <label>文本权重: <span id="textWeight">0.33</span></label>
+                        <input type="range" id="textSlider" min="0" max="1" step="0.1" value="0.33">
+                    </div>
+                    <div class="weight-item">
+                        <label>音频权重: <span id="audioWeight">0.34</span></label>
+                        <input type="range" id="audioSlider" min="0" max="1" step="0.1" value="0.34">
+                    </div>
+                    <button id="normalizeBtn" class="btn-secondary">归一化权重</button>
+                </div>
+
+                <div class="examples-section">
+                    <h3>💡 示例场景</h3>
+                    <div class="example-list">
+                        <button class="example-btn" data-example="cat">🐱 猫咪场景</button>
+                        <button class="example-btn" data-example="dog">🐕 狗狗场景</button>
+                        <button class="example-btn" data-example="car">🚗 汽车场景</button>
+                        <button class="example-btn" data-example="nature">🌲 自然场景</button>
+                    </div>
+                </div>
+
+                <div class="score-section">
+                    <h3>📊 融合质量</h3>
+                    <div class="quality-item">
+                        <div class="quality-label">模态一致性</div>
+                        <div class="quality-bar">
+                            <div class="quality-fill" id="consistency"></div>
+                        </div>
+                    </div>
+                    <div class="quality-item">
+                        <div class="quality-label">特征互补性</div>
+                        <div class="quality-bar">
+                            <div class="quality-fill" id="complementarity"></div>
+                        </div>
+                    </div>
+                    <div class="quality-item">
+                        <div class="quality-label">融合效果</div>
+                        <div class="quality-bar">
+                            <div class="quality-fill" id="effectiveness"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tutorial">
+            <h3>📚 多模态学习原理</h3>
+            
+            <div class="concepts">
+                <h4>核心概念</h4>
+                <p><strong>多模态学习:</strong> 整合来自不同感官通道的信息（视觉、听觉、文本等）</p>
+                <p><strong>模态编码器:</strong> 将不同模态的原始数据转换为统一的特征表示</p>
+                <p><strong>特征对齐:</strong> 将不同模态的特征映射到共同的语义空间</p>
+                <p><strong>模态融合:</strong> 组合多个模态的信息以提升性能</p>
+            </div>
+
+            <div class="methods">
+                <h4>融合策略</h4>
+                <p><strong>早期融合:</strong> 在特征提取前直接拼接原始输入</p>
+                <p><strong>晚期融合:</strong> 分别处理各模态，最后融合决策结果</p>
+                <p><strong>注意力融合:</strong> 动态学习各模态的重要性权重</p>
+                <p><strong>Transformer融合:</strong> 使用自注意力机制建模模态间交互</p>
+            </div>
+
+            <div class="applications">
+                <h4>实际应用</h4>
+                <p><strong>CLIP:</strong> OpenAI的图文对比学习模型，实现零样本图像分类</p>
+                <p><strong>GPT-4V:</strong> 多模态大语言模型，理解图像和文本</p>
+                <p><strong>Sora:</strong> 文本生成视频的多模态生成模型</p>
+                <p><strong>Gemini:</strong> Google的原生多模态模型</p>
+            </div>
+
+            <div class="tips">
+                <h4>设计要点</h4>
+                <ul>
+                    <li>💡 <strong>模态互补:</strong> 不同模态提供不同视角的信息</li>
+                    <li>💡 <strong>对齐学习:</strong> 学习跨模态的语义对应关系</li>
+                    <li>💡 <strong>缺失鲁棒:</strong> 系统应能处理部分模态缺失</li>
+                    <li>💡 <strong>权重自适应:</strong> 根据任务动态调整模态权重</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
