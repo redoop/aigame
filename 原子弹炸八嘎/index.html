@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>原子弹炸八嘎</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 100%);
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            background: linear-gradient(to bottom, #87CEEB 0%, #90EE90 80%, #8B4513 80%, #654321 100%);
+            cursor: crosshair;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+        
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            color: white;
+            padding: 40px;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+        }
+        
+        button {
+            margin-top: 20px;
+            padding: 10px 30px;
+            font-size: 18px;
+            cursor: pointer;
+            background: #ff4444;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        
+        button:hover {
+            background: #cc0000;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <div>分数: <span id="score">0</span></div>
+        <div style="margin-top: 10px; font-size: 14px;">鼠标点击: 移动轰炸机 | 空格: 投弹</div>
+        <div style="margin-top: 5px; font-size: 14px;">1: 胖子原子弹 | 2: 沙皇氢弹</div>
+        <div style="margin-top: 5px; font-size: 12px; color: #ffff00;">提示: 炸毁核电站可消灭所有地面敌人!</div>
+    </div>
+    
+    <div id="gameOver">
+        <h1>游戏结束!</h1>
+        <p>最终分数: <span id="finalScore">0</span></p>
+        <button onclick="location.reload()">重新开始</button>
+    </div>
+    
+    <canvas id="gameCanvas"></canvas>
+    
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        
+        let score = 0;
+        let enemies = [];
+        let missiles = [];
+        let explosions = [];
+        let gameActive = true;
+        let bomber = { x: canvas.width / 2, y: 100, targetX: canvas.width / 2 };
+        let spacePressed = false;
+        let craters = [];
+        let nuclearPlant = { x: 0, y: 0, width: 120, height: 100, destroyed: false, rebuildTimer: 0 };
+        let bombType = 'fatman'; // 'fatman' or 'tsar'
+        
+        // 音效
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playLaunchSound() {
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            osc.connect(gain);
+            gain.connect(audioContext.destination);
+            osc.frequency.value = 200;
+            osc.type = 'sawtooth';
+            gain.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+            osc.start();
+            osc.stop(audioContext.currentTime + 0.3);
+        }
+        
+        function playExplosionSound() {
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            osc.connect(gain);
+            gain.connect(audioContext.destination);
+            osc.frequency.setValueAtTime(150, audioContext.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(50, audioContext.currentTime + 0.5);
+            osc.type = 'sawtooth';
+            gain.gain.setValueAtTime(0.5, audioContext.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+            osc.start();
+            osc.stop(audioContext.currentTime + 0.5);
+        }
+        
+        class Enemy {
+            constructor(isUnderground = false) {
+                this.x = Math.random() * (canvas.width - 60) + 30;
+                this.y = canvas.height * 0.8 - 40;
+                this.vx = (Math.random() - 0.5) * 2;
+                this.size = 30;
+                this.bunkerWidth = 80;
+                this.bunkerHeight = 50;
+                this.isOutside = false;
+                this.runTimer = Math.random() * 300 + 200;
+                this.isUnderground = isUnderground;
+                this.underground = isUnderground;
+                this.bunkerHP = isUnderground ? 0 : 3;
+                this.maxBunkerHP = 3;
+            }
+            
+            update() {
+                if (!this.isUnderground) {
+                    this.runTimer--;
+                    
+                    if (this.runTimer <= 0) {
+                        this.isOutside = !this.isOutside;
+                        this.runTimer = this.isOutside ? Math.random() * 150 + 100 : Math.random() * 300 + 200;
+                    }
+                }
+                
+                this.x += this.vx;
+                if (this.x < 30 || this.x > canvas.width - 30) this.vx *= -1;
+            }
+            
+            draw() {
+                if (this.isUnderground) {
+                    // 地道入口
+                    ctx.fillStyle = '#3a2a1a';
+                    ctx.beginPath();
+                    ctx.arc(this.x, canvas.height * 0.8, 25, 0, Math.PI);
+                    ctx.fill();
+                    
+                    // 地道标记
+                    ctx.fillStyle = '#555';
+                    ctx.font = '12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('地道', this.x, canvas.height * 0.8 - 5);
+                    
+                    // 地下的八嘎（半透明显示在地下）
+                    ctx.globalAlpha = 0.3;
+                    ctx.fillStyle = '#ffdbac';
+                    ctx.beginPath();
+                    ctx.arc(this.x, canvas.height * 0.8 + 40, this.size * 0.6, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = '#4a4a4a';
+                    ctx.beginPath();
+                    ctx.arc(this.x, canvas.height * 0.8 + 37, this.size * 0.5, Math.PI, Math.PI * 2);
+                    ctx.fill();
+                    ctx.globalAlpha = 1;
+                    
+                    return;
+                }
+                
+                // 掩体
+                const hpRatio = this.bunkerHP / this.maxBunkerHP;
+                const bunkerColor = hpRatio > 0.66 ? '#654321' : hpRatio > 0.33 ? '#5a3a1a' : '#4a2a0a';
+                ctx.fillStyle = bunkerColor;
+                ctx.fillRect(this.x - this.bunkerWidth / 2, this.y - 20, this.bunkerWidth, this.bunkerHeight);
+                ctx.fillStyle = '#4a3621';
+                ctx.beginPath();
+                ctx.moveTo(this.x - this.bunkerWidth / 2, this.y - 20);
+                ctx.lineTo(this.x, this.y - 35);
+                ctx.lineTo(this.x + this.bunkerWidth / 2, this.y - 20);
+                ctx.fill();
+                
+                // 血量条
+                const barWidth = this.bunkerWidth - 10;
+                const barHeight = 5;
+                ctx.fillStyle = '#333';
+                ctx.fillRect(this.x - barWidth / 2, this.y - 45, barWidth, barHeight);
+                const hpColor = hpRatio > 0.5 ? '#00ff00' : hpRatio > 0.25 ? '#ffff00' : '#ff0000';
+                ctx.fillStyle = hpColor;
+                ctx.fillRect(this.x - barWidth / 2, this.y - 45, barWidth * hpRatio, barHeight);
+                
+                // 射击孔
+                ctx.fillStyle = '#222';
+                ctx.fillRect(this.x - 15, this.y, 30, 8);
+                
+                if (this.isOutside) {
+                    // 跑出掩体的完整人物
+                    const offsetX = 35;
+                    
+                    // 身体
+                    ctx.fillStyle = '#4a4a4a';
+                    ctx.fillRect(this.x + offsetX - 8, this.y + 10, 16, 25);
+                    
+                    // 脸
+                    ctx.fillStyle = '#ffdbac';
+                    ctx.beginPath();
+                    ctx.arc(this.x + offsetX, this.y, this.size * 0.6, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // 头盔
+                    ctx.fillStyle = '#4a4a4a';
+                    ctx.beginPath();
+                    ctx.arc(this.x + offsetX, this.y - 3, this.size * 0.5, Math.PI, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // 眼睛
+                    ctx.fillStyle = 'black';
+                    ctx.beginPath();
+                    ctx.arc(this.x + offsetX - 6, this.y, 2, 0, Math.PI * 2);
+                    ctx.arc(this.x + offsetX + 6, this.y, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // 八字胡
+                    ctx.strokeStyle = 'black';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x + offsetX - 10, this.y + 6);
+                    ctx.lineTo(this.x + offsetX - 3, this.y + 5);
+                    ctx.moveTo(this.x + offsetX + 10, this.y + 6);
+                    ctx.lineTo(this.x + offsetX + 3, this.y + 5);
+                    ctx.stroke();
+                    
+                    // 腿
+                    ctx.fillStyle = '#4a4a4a';
+                    ctx.fillRect(this.x + offsetX - 8, this.y + 35, 6, 15);
+                    ctx.fillRect(this.x + offsetX + 2, this.y + 35, 6, 15);
+                } else {
+                    // 从射击孔露出的脸
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.rect(this.x - 15, this.y, 30, 8);
+                    ctx.clip();
+                    
+                    // 脸
+                    ctx.fillStyle = '#ffdbac';
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y + 4, this.size * 0.6, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // 头盔
+                    ctx.fillStyle = '#4a4a4a';
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size * 0.5, Math.PI, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // 眼睛
+                    ctx.fillStyle = 'black';
+                    ctx.beginPath();
+                    ctx.arc(this.x - 6, this.y + 4, 2, 0, Math.PI * 2);
+                    ctx.arc(this.x + 6, this.y + 4, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.restore();
+                }
+            }
+        }
+        
+        class Missile {
+            constructor(sx, sy, tx, ty, type = 'fatman') {
+                this.x = sx;
+                this.y = sy;
+                this.targetX = tx;
+                this.targetY = ty;
+                this.vx = 0;
+                this.vy = 5;
+                this.size = type === 'tsar' ? 18 : 12;
+                this.rotation = 0;
+                this.type = type;
+            }
+            
+            update() {
+                this.y += this.vy;
+                this.vy += 0.2; // 重力加速
+                this.rotation += 0.05;
+                return this.y < canvas.height;
+            }
+            
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                
+                if (this.type === 'tsar') {
+                    // 沙皇氢弹（更大更威猛）
+                    ctx.fillStyle = '#1a1a1a';
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, this.size * 1.3, this.size * 1.8, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // 红色条纹标识
+                    ctx.fillStyle = '#ff0000';
+                    ctx.fillRect(-this.size * 1.3, -this.size * 0.4, this.size * 2.6, this.size * 0.8);
+                    
+                    // 尾翼
+                    ctx.fillStyle = '#444';
+                    ctx.beginPath();
+                    ctx.moveTo(-this.size, -this.size * 1.8);
+                    ctx.lineTo(0, -this.size * 2.8);
+                    ctx.lineTo(this.size, -this.size * 1.8);
+                    ctx.fill();
+                    
+                    // "沙皇"文字
+                    ctx.fillStyle = 'yellow';
+                    ctx.font = 'bold 12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('沙皇', 0, 4);
+                } else {
+                    // 胖子炸弹
+                    ctx.fillStyle = '#2a2a2a';
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, this.size * 1.2, this.size * 1.5, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // 黄色条纹标识
+                    ctx.fillStyle = '#ffcc00';
+                    ctx.fillRect(-this.size * 1.2, -this.size * 0.3, this.size * 2.4, this.size * 0.6);
+                    
+                    // 尾翼
+                    ctx.fillStyle = '#555';
+                    ctx.beginPath();
+                    ctx.moveTo(-this.size * 0.8, -this.size * 1.5);
+                    ctx.lineTo(0, -this.size * 2.2);
+                    ctx.lineTo(this.size * 0.8, -this.size * 1.5);
+                    ctx.fill();
+                    
+                    // "胖子"文字
+                    ctx.fillStyle = 'white';
+                    ctx.font = 'bold 10px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('胖子', 0, 3);
+                }
+                
+                ctx.restore();
+            }
+        }
+        
+        class Explosion {
+            constructor(x, y, type = 'normal') {
+                this.x = x;
+                this.y = y;
+                this.radius = 0;
+                this.life = type === 'nuclear' ? 120 : (type === 'tsar' ? 100 : 80);
+                this.type = type;
+            }
+            
+            update() {
+                this.radius += this.type === 'nuclear' ? 5 : (this.type === 'tsar' ? 4 : 3);
+                this.life--;
+                return this.life > 0;
+            }
+            
+            draw() {
+                const totalLife = this.type === 'nuclear' ? 120 : (this.type === 'tsar' ? 100 : 80);
+                const progress = 1 - this.life / totalLife;
+                
+                // 核电站爆炸特效
+                if (this.type === 'nuclear') {
+                    // 超强闪光
+                    if (this.life > 100) {
+                        ctx.fillStyle = `rgba(255, 255, 255, ${(this.life - 100) / 20})`;
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    }
+                    
+                    // 巨大火球
+                    if (this.life > 60) {
+                        const fireAlpha = (this.life - 60) / 60;
+                        ctx.fillStyle = `rgba(255, 100, 0, ${fireAlpha})`;
+                        ctx.beginPath();
+                        ctx.arc(this.x, this.y, this.radius * 2, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.fillStyle = `rgba(255, 255, 100, ${fireAlpha})`;
+                        ctx.beginPath();
+                        ctx.arc(this.x, this.y, this.radius * 1.2, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+                
+                // 沙皇氢弹爆炸（比普通大）
+                const sizeMultiplier = this.type === 'tsar' ? 1.5 : 1;
+                
+                // 初始闪光
+                if (this.life > totalLife - 10) {
+                    const flashAlpha = (this.life - (totalLife - 10)) / 10;
+                    ctx.fillStyle = `rgba(255, 255, 255, ${flashAlpha})`;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius * 3 * sizeMultiplier, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // 火球阶段
+                if (this.life > totalLife - 30) {
+                    const fireAlpha = (this.life - (totalLife - 30)) / 30;
+                    ctx.fillStyle = `rgba(255, 80, 0, ${fireAlpha * 0.9})`;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius * 1.2 * sizeMultiplier, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = `rgba(255, 200, 0, ${fireAlpha})`;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius * 0.8 * sizeMultiplier, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = `rgba(255, 255, 200, ${fireAlpha})`;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius * 0.4 * sizeMultiplier, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // 蘑菇云形成阶段
+                if (this.life <= totalLife - 20) {
+                    const cloudProgress = (totalLife - 20 - this.life) / (totalLife - 20);
+                    const stemHeight = this.radius * 2 * cloudProgress * sizeMultiplier;
+                    const capRadius = this.radius * 1.2 * sizeMultiplier;
+                    const capY = this.y - stemHeight;
+                    
+                    // 云柱
+                    const gradient = ctx.createLinearGradient(this.x, this.y, this.x, capY);
+                    gradient.addColorStop(0, `rgba(60, 40, 30, ${0.7 * cloudProgress})`);
+                    gradient.addColorStop(0.5, `rgba(100, 80, 60, ${0.8 * cloudProgress})`);
+                    gradient.addColorStop(1, `rgba(140, 120, 100, ${0.6 * cloudProgress})`);
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(this.x - capRadius * 0.25, this.y, capRadius * 0.5, stemHeight);
+                    
+                    // 蘑菇云帽
+                    ctx.fillStyle = `rgba(80, 60, 50, ${0.8 * cloudProgress})`;
+                    ctx.beginPath();
+                    ctx.ellipse(this.x, capY + capRadius * 0.3, capRadius * 1.3, capRadius * 0.6, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = `rgba(120, 100, 80, ${0.85 * cloudProgress})`;
+                    ctx.beginPath();
+                    ctx.ellipse(this.x, capY, capRadius * 1.1, capRadius * 0.8, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = `rgba(160, 140, 120, ${0.7 * cloudProgress})`;
+                    ctx.beginPath();
+                    ctx.ellipse(this.x, capY - capRadius * 0.4, capRadius * 0.8, capRadius * 0.6, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // 云团边缘细节
+                    for (let i = 0; i < 5; i++) {
+                        const angle = (i / 5) * Math.PI * 2;
+                        const offsetX = Math.cos(angle) * capRadius * 0.9;
+                        const offsetY = Math.sin(angle) * capRadius * 0.5;
+                        ctx.fillStyle = `rgba(100, 80, 70, ${0.5 * cloudProgress})`;
+                        ctx.beginPath();
+                        ctx.arc(this.x + offsetX, capY + offsetY, capRadius * 0.3, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    
+                    // 火光残留
+                    if (this.life > totalLife - 40) {
+                        const fireGlow = (this.life - (totalLife - 40)) / 20;
+                        ctx.fillStyle = `rgba(255, 150, 50, ${fireGlow * 0.4})`;
+                        ctx.beginPath();
+                        ctx.arc(this.x, capY, capRadius * 0.6, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            }
+        }
+        
+        function spawnEnemy() {
+            if (enemies.length < 10 && gameActive) {
+                const isUnderground = Math.random() < 0.4;
+                enemies.push(new Enemy(isUnderground));
+            }
+        }
+        
+        canvas.addEventListener('click', (e) => {
+            if (!gameActive) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const tx = e.clientX - rect.left;
+            
+            bomber.targetX = tx;
+        });
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && !spacePressed && gameActive) {
+                spacePressed = true;
+                e.preventDefault();
+            }
+            if (e.code === 'Digit1') {
+                bombType = 'fatman';
+            }
+            if (e.code === 'Digit2') {
+                bombType = 'tsar';
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            if (e.code === 'Space') {
+                spacePressed = false;
+                e.preventDefault();
+            }
+        });
+        
+        function checkCollisions() {
+            missiles.forEach((missile, mi) => {
+                // 检查是否击中核电站
+                if (!nuclearPlant.destroyed && 
+                    missile.x > nuclearPlant.x && 
+                    missile.x < nuclearPlant.x + nuclearPlant.width &&
+                    missile.y > nuclearPlant.y && 
+                    missile.y < nuclearPlant.y + nuclearPlant.height) {
+                    
+                    nuclearPlant.destroyed = true;
+                    explosions.push(new Explosion(nuclearPlant.x + nuclearPlant.width / 2, nuclearPlant.y + nuclearPlant.height / 2, 'nuclear'));
+                    missiles.splice(mi, 1);
+                    playExplosionSound();
+                    
+                    // 消灭所有地面敌人
+                    const groundEnemies = enemies.filter(e => !e.isUnderground);
+                    score += groundEnemies.length * 500;
+                    enemies = enemies.filter(e => e.isUnderground);
+                    document.getElementById('score').textContent = score;
+                    return;
+                }
+                
+                // 检查是否落地或击中敌人
+                let shouldExplode = false;
+                let explodeX = missile.x;
+                let explodeY = missile.y;
+                let explodeType = missile.type === 'tsar' ? 'tsar' : 'normal';
+                
+                if (missile.y >= canvas.height * 0.8) {
+                    shouldExplode = true;
+                    explodeY = canvas.height * 0.8;
+                }
+                
+                const explosionRadius = missile.type === 'tsar' ? 180 : 120;
+                
+                enemies.forEach((enemy, ei) => {
+                    if (enemy.isUnderground) {
+                        const dx = missile.x - enemy.x;
+                        if (Math.abs(dx) < 60 && missile.y >= canvas.height * 0.8) {
+                            let craterDepth = 0;
+                            craters.forEach(crater => {
+                                if (Math.abs(crater.x - enemy.x) < 80) {
+                                    craterDepth += crater.depth;
+                                }
+                            });
+                            
+                            const requiredDepth = missile.type === 'tsar' ? 2 : 3;
+                            if (craterDepth >= requiredDepth) {
+                                shouldExplode = true;
+                                explodeX = enemy.x;
+                                explodeY = canvas.height * 0.8;
+                                enemies.splice(ei, 1);
+                                score += 300;
+                                document.getElementById('score').textContent = score;
+                            }
+                        }
+                    } else {
+                        const targetX = enemy.isOutside ? enemy.x + 35 : enemy.x;
+                        const dx = missile.x - targetX;
+                        const dy = missile.y - enemy.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (dist < 50) {
+                            shouldExplode = true;
+                            explodeX = enemy.x;
+                            explodeY = enemy.y;
+                            
+                            // 掩体受伤
+                            enemy.bunkerHP--;
+                            if (enemy.bunkerHP <= 0) {
+                                enemies.splice(ei, 1);
+                                score += enemy.isOutside ? 200 : 100;
+                                document.getElementById('score').textContent = score;
+                            }
+                        }
+                    }
+                });
+                
+                if (shouldExplode) {
+                    explosions.push(new Explosion(explodeX, explodeY, explodeType));
+                    missiles.splice(mi, 1);
+                    playExplosionSound();
+                    
+                    // 创建弹坑
+                    if (explodeY >= canvas.height * 0.8 - 20) {
+                        const craterDepth = missile.type === 'tsar' ? 2 : 1;
+                        craters.push({ x: explodeX, depth: craterDepth, radius: explosionRadius });
+                    }
+                    
+                    // 爆炸范围伤害
+                    enemies = enemies.filter(enemy => {
+                        if (enemy.isUnderground) return true;
+                        
+                        const targetX = enemy.isOutside ? enemy.x + 35 : enemy.x;
+                        const dx = explodeX - targetX;
+                        const dy = explodeY - enemy.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < explosionRadius) {
+                            enemy.bunkerHP--;
+                            if (enemy.bunkerHP <= 0) {
+                                score += enemy.isOutside ? 200 : 100;
+                                document.getElementById('score').textContent = score;
+                                return false;
+                            }
+                        }
+                        return true;
+                    });
+                }
+            });
+        }
+        
+        function endGame() {
+            gameActive = false;
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+        
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 地面
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(0, canvas.height * 0.8, canvas.width, canvas.height * 0.2);
+            
+            // 核电站重建逻辑
+            if (nuclearPlant.destroyed) {
+                nuclearPlant.rebuildTimer++;
+                if (nuclearPlant.rebuildTimer >= 600) { // 10秒后重建
+                    nuclearPlant.destroyed = false;
+                    nuclearPlant.rebuildTimer = 0;
+                }
+            }
+            
+            // 绘制核电站
+            const plantX = canvas.width - 150;
+            const plantY = canvas.height * 0.8 - nuclearPlant.height;
+            nuclearPlant.x = plantX;
+            nuclearPlant.y = plantY;
+            
+            if (!nuclearPlant.destroyed) {
+                // 主建筑
+                ctx.fillStyle = '#cccccc';
+                ctx.fillRect(plantX, plantY + 30, 80, 70);
+                
+                // 冷却塔
+                ctx.fillStyle = '#aaaaaa';
+                ctx.beginPath();
+                ctx.moveTo(plantX + 90, plantY + 100);
+                ctx.lineTo(plantX + 95, plantY + 40);
+                ctx.lineTo(plantX + 115, plantY + 40);
+                ctx.lineTo(plantX + 120, plantY + 100);
+                ctx.closePath();
+                ctx.fill();
+                
+                // 冷却塔顶部
+                ctx.fillStyle = '#888888';
+                ctx.beginPath();
+                ctx.arc(plantX + 105, plantY + 40, 10, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 核标志
+                ctx.fillStyle = '#ffff00';
+                ctx.beginPath();
+                ctx.arc(plantX + 40, plantY + 60, 15, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#ff0000';
+                ctx.font = 'bold 20px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('☢', plantX + 40, plantY + 68);
+                
+                // 标签
+                ctx.fillStyle = 'white';
+                ctx.font = '12px Arial';
+                ctx.fillText('核电站', plantX + 40, plantY + 20);
+            } else {
+                // 显示重建进度
+                const progress = nuclearPlant.rebuildTimer / 600;
+                const rebuildHeight = nuclearPlant.height * progress;
+                
+                // 废墟
+                ctx.fillStyle = '#555555';
+                ctx.fillRect(plantX, plantY + 100 - rebuildHeight * 0.3, 80, rebuildHeight * 0.3);
+                
+                // 重建中标识
+                ctx.fillStyle = 'yellow';
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('重建中...', plantX + 60, plantY + 50);
+                
+                // 进度条
+                ctx.strokeStyle = 'white';
+                ctx.strokeRect(plantX + 10, plantY + 60, 100, 10);
+                ctx.fillStyle = '#00ff00';
+                ctx.fillRect(plantX + 10, plantY + 60, 100 * progress, 10);
+            }
+            
+            // 绘制弹坑
+            craters.forEach(crater => {
+                ctx.fillStyle = '#5a3a1a';
+                ctx.beginPath();
+                ctx.ellipse(crater.x, canvas.height * 0.8, crater.radius * 0.6, crater.radius * 0.3, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                if (crater.depth > 0) {
+                    ctx.fillStyle = '#3a2a1a';
+                    ctx.beginPath();
+                    ctx.ellipse(crater.x, canvas.height * 0.8 + 5, crater.radius * 0.4, crater.radius * 0.2, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+            
+            // 更新轰炸机位置
+            const dx = bomber.targetX - bomber.x;
+            bomber.x += dx * 0.05;
+            
+            // 按住空格投弹
+            if (spacePressed && Math.random() < 0.1) {
+                missiles.push(new Missile(bomber.x, bomber.y + 20, 0, 0, bombType));
+                playLaunchSound();
+            }
+            
+            // 绘制轰炸机
+            ctx.fillStyle = '#555';
+            ctx.fillRect(bomber.x - 40, bomber.y - 10, 80, 20);
+            ctx.beginPath();
+            ctx.moveTo(bomber.x + 40, bomber.y);
+            ctx.lineTo(bomber.x + 55, bomber.y);
+            ctx.lineTo(bomber.x + 40, bomber.y + 10);
+            ctx.fill();
+            ctx.fillRect(bomber.x - 50, bomber.y, 100, 8);
+            ctx.fillRect(bomber.x - 45, bomber.y - 20, 10, 20);
+            
+            // 显示当前炸弹类型
+            ctx.fillStyle = bombType === 'tsar' ? '#ff0000' : '#ffcc00';
+            ctx.font = 'bold 12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(bombType === 'tsar' ? '沙皇' : '胖子', bomber.x, bomber.y - 25);
+            
+            enemies.forEach(e => {
+                e.update();
+                e.draw();
+            });
+            
+            missiles = missiles.filter(m => {
+                const alive = m.update();
+                m.draw();
+                return alive;
+            });
+            
+            explosions = explosions.filter(e => {
+                const alive = e.update();
+                e.draw();
+                return alive;
+            });
+            
+            checkCollisions();
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        setInterval(spawnEnemy, 2000);
+        spawnEnemy();
+        spawnEnemy();
+        spawnEnemy();
+        
+        gameLoop();
+    </script>
+</body>
+</html>
