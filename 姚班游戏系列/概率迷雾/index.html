@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>概率迷雾 - 贝叶斯推理</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎲 概率迷雾</h1>
+            <p class="subtitle">在不确定中寻找真相</p>
+        </header>
+
+        <div class="game-area">
+            <div class="main-section">
+                <div class="scenario-panel">
+                    <h3>🔍 案件场景</h3>
+                    <div class="scenario-content" id="scenario">
+                        选择一个关卡开始推理...
+                    </div>
+                    <div class="evidence-list" id="evidenceList"></div>
+                </div>
+
+                <div class="probability-panel">
+                    <h3>📊 概率分布</h3>
+                    <canvas id="probCanvas"></canvas>
+                    <div class="prob-legend">
+                        <div class="legend-item">
+                            <span class="legend-color" style="background: #667eea"></span>
+                            <span>先验概率</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color" style="background: #48bb78"></span>
+                            <span>后验概率</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bayes-formula">
+                    <h3>🧮 贝叶斯公式</h3>
+                    <div class="formula">
+                        P(H|E) = <span class="fraction">
+                            <span class="numerator">P(E|H) × P(H)</span>
+                            <span class="denominator">P(E)</span>
+                        </span>
+                    </div>
+                    <div class="formula-explain">
+                        <p><strong>P(H|E)</strong> = 后验概率（观察到证据后的信念）</p>
+                        <p><strong>P(E|H)</strong> = 似然（假设为真时观察到证据的概率）</p>
+                        <p><strong>P(H)</strong> = 先验概率（初始信念）</p>
+                        <p><strong>P(E)</strong> = 证据概率（归一化常数）</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <div class="hypothesis-section">
+                    <h3>假设列表</h3>
+                    <div id="hypothesisList"></div>
+                </div>
+
+                <div class="evidence-section">
+                    <h3>收集证据</h3>
+                    <div id="evidenceButtons"></div>
+                </div>
+
+                <div class="calculation-section">
+                    <h3>计算详情</h3>
+                    <div class="calc-display" id="calcDisplay">
+                        <p>选择证据后显示计算过程</p>
+                    </div>
+                </div>
+
+                <div class="stats-section">
+                    <h3>统计信息</h3>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-label">证据数:</span>
+                            <span class="stat-value" id="evidenceCount">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">最可能:</span>
+                            <span class="stat-value" id="mostLikely">-</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">置信度:</span>
+                            <span class="stat-value" id="confidence">0%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button id="submitBtn" class="btn btn-primary">提交答案</button>
+                    <button id="resetBtn" class="btn btn-secondary">重置</button>
+                </div>
+
+                <div class="level-section">
+                    <h3>关卡选择</h3>
+                    <div class="level-list">
+                        <button class="level-btn active" data-level="1">关卡1: 医疗诊断</button>
+                        <button class="level-btn" data-level="2">关卡2: 垃圾邮件</button>
+                        <button class="level-btn" data-level="3">关卡3: 犯罪推理</button>
+                        <button class="level-btn" data-level="4">关卡4: 天气预测</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tutorial">
+            <h3>💡 游戏说明</h3>
+            <ul>
+                <li><strong>目标:</strong> 通过收集证据，使用贝叶斯推理找出最可能的假设</li>
+                <li><strong>先验概率:</strong> 在没有任何证据前的初始信念</li>
+                <li><strong>似然:</strong> 在某个假设下观察到证据的概率</li>
+                <li><strong>后验概率:</strong> 观察到证据后更新的信念</li>
+                <li><strong>策略:</strong> 选择信息量大的证据，快速缩小可能性</li>
+            </ul>
+            
+            <div class="example">
+                <h4>📖 经典例子：医疗检测</h4>
+                <p>某疾病患病率1%，检测准确率95%</p>
+                <p>如果检测阳性，真的患病概率是多少？</p>
+                <p><strong>答案：约16%</strong>（不是95%！）</p>
+                <p class="hint">这就是贝叶斯推理的反直觉之处</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

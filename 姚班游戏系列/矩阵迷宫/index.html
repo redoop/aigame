@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>矩阵迷宫 - 线性代数可视化</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔷 矩阵迷宫</h1>
+            <p class="subtitle">用线性变换改变世界</p>
+        </header>
+
+        <div class="game-area">
+            <div class="canvas-section">
+                <div class="canvas-container">
+                    <h3>变换前空间</h3>
+                    <canvas id="originalCanvas"></canvas>
+                </div>
+                <div class="canvas-container">
+                    <h3>变换后空间</h3>
+                    <canvas id="transformedCanvas"></canvas>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <div class="info-section">
+                    <h3>当前状态</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="label">向量位置:</span>
+                            <span class="value" id="vectorPos">(0, 0)</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">变换后:</span>
+                            <span class="value" id="transformedPos">(0, 0)</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">行列式:</span>
+                            <span class="value" id="determinant">1.00</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">关卡:</span>
+                            <span class="value" id="currentLevel">1</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="matrix-section">
+                    <h3>变换矩阵</h3>
+                    <div class="matrix-display">
+                        <div class="matrix-bracket">[</div>
+                        <div class="matrix-grid">
+                            <input type="number" id="m00" value="1" step="0.1">
+                            <input type="number" id="m01" value="0" step="0.1">
+                            <input type="number" id="m10" value="0" step="0.1">
+                            <input type="number" id="m11" value="1" step="0.1">
+                        </div>
+                        <div class="matrix-bracket">]</div>
+                    </div>
+                </div>
+
+                <div class="transform-section">
+                    <h3>预设变换</h3>
+                    <div class="transform-grid">
+                        <button class="transform-btn" data-transform="identity">单位矩阵</button>
+                        <button class="transform-btn" data-transform="rotate90">旋转90°</button>
+                        <button class="transform-btn" data-transform="scale">缩放2x</button>
+                        <button class="transform-btn" data-transform="shear">剪切</button>
+                        <button class="transform-btn" data-transform="reflect">反射</button>
+                        <button class="transform-btn" data-transform="projection">投影</button>
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <h3>向量控制</h3>
+                    <div class="control-group">
+                        <label>X: <span id="xValue">0.0</span></label>
+                        <input type="range" id="vectorX" min="-5" max="5" step="0.1" value="0">
+                    </div>
+                    <div class="control-group">
+                        <label>Y: <span id="yValue">0.0</span></label>
+                        <input type="range" id="vectorY" min="-5" max="5" step="0.1" value="0">
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button id="applyBtn" class="btn btn-primary">应用变换</button>
+                    <button id="resetBtn" class="btn btn-secondary">重置</button>
+                    <button id="nextLevelBtn" class="btn btn-success">下一关</button>
+                </div>
+
+                <div class="level-section">
+                    <h3>关卡目标</h3>
+                    <div class="objective" id="objective">
+                        将蓝色向量变换到目标位置（绿色圆圈）
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar" id="progressBar"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tutorial">
+            <h3>💡 游戏说明</h3>
+            <ul>
+                <li><strong>目标:</strong> 通过矩阵变换将向量移动到目标位置</li>
+                <li><strong>矩阵:</strong> 2x2矩阵定义线性变换</li>
+                <li><strong>行列式:</strong> 表示面积缩放比例，0表示降维</li>
+                <li><strong>网格:</strong> 显示空间如何被变换扭曲</li>
+                <li><strong>基向量:</strong> 红色=x轴，绿色=y轴</li>
+            </ul>
+            
+            <div class="concepts">
+                <h4>核心概念</h4>
+                <p><strong>旋转:</strong> 保持长度，改变方向</p>
+                <p><strong>缩放:</strong> 改变长度，保持方向</p>
+                <p><strong>剪切:</strong> 平行四边形变换</p>
+                <p><strong>投影:</strong> 降维到直线</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

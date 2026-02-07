@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>姚班游戏系列 - 算法科学教育</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 50px;
+        }
+
+        h1 {
+            font-size: 3.5em;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .subtitle {
+            font-size: 1.3em;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+
+        .description {
+            font-size: 1.1em;
+            opacity: 0.85;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-bottom: 50px;
+        }
+
+        .game-card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            transition: transform 0.3s, box-shadow 0.3s;
+            cursor: pointer;
+        }
+
+        .game-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+        }
+
+        .game-icon {
+            font-size: 4em;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .game-title {
+            font-size: 1.8em;
+            color: #667eea;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .game-subtitle {
+            font-size: 1.1em;
+            color: #666;
+            margin-bottom: 15px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .game-description {
+            color: #555;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .game-features {
+            list-style: none;
+            padding: 0;
+            margin-bottom: 20px;
+        }
+
+        .game-features li {
+            padding: 8px 0;
+            color: #666;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .game-features li:last-child {
+            border-bottom: none;
+        }
+
+        .game-features strong {
+            color: #667eea;
+        }
+
+        .play-btn {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+            text-decoration: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .play-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .info-section {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            margin-bottom: 30px;
+        }
+
+        .info-section h2 {
+            color: #667eea;
+            font-size: 2em;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .info-section p {
+            color: #555;
+            line-height: 1.8;
+            margin-bottom: 15px;
+            font-size: 1.05em;
+        }
+
+        .info-section ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .info-section li {
+            padding: 10px 0;
+            color: #555;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .info-section li:last-child {
+            border-bottom: none;
+        }
+
+        .info-section strong {
+            color: #667eea;
+        }
+
+        .phase-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .phase-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .phase-card h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .phase-card p {
+            color: #666;
+            font-size: 0.95em;
+            margin: 0;
+        }
+
+        footer {
+            text-align: center;
+            color: white;
+            padding: 20px;
+            opacity: 0.8;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2.5em;
+            }
+
+            .games-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎓 姚班游戏系列</h1>
+            <p class="subtitle">基于大语言模型算法研发的教育游戏</p>
+            <p class="description">
+                培养20-30年生命周期的核心能力：数学基础、算法思维、深度学习原理
+            </p>
+        </header>
+
+        <div class="games-grid">
+            <div class="game-card">
+                <div class="game-icon">🏔️</div>
+                <h2 class="game-title">梯度下山</h2>
+                <p class="game-subtitle">优化算法可视化</p>
+                <p class="game-description">
+                    在多维地形中寻找最低点，直观理解梯度下降、动量法、Adam等优化算法的原理和特性。
+                </p>
+                <ul class="game-features">
+                    <li><strong>核心概念:</strong> 梯度下降、学习率、动量</li>
+                    <li><strong>4种地形:</strong> 凸函数、非凸、鞍点、峡谷</li>
+                    <li><strong>4种优化器:</strong> GD、Momentum、Adam、SGD</li>
+                    <li><strong>教育价值:</strong> 理解神经网络训练的核心</li>
+                </ul>
+                <a href="./梯度下山/index.html" class="play-btn">开始游戏 →</a>
+            </div>
+
+            <div class="game-card">
+                <div class="game-icon">🔷</div>
+                <h2 class="game-title">矩阵迷宫</h2>
+                <p class="game-subtitle">线性代数可视化</p>
+                <p class="game-description">
+                    通过矩阵变换改变向量空间，几何直观地理解线性变换、特征值、行列式等核心概念。
+                </p>
+                <ul class="game-features">
+                    <li><strong>核心概念:</strong> 线性变换、矩阵乘法、行列式</li>
+                    <li><strong>6个关卡:</strong> 旋转、缩放、反射、剪切、投影</li>
+                    <li><strong>实时可视化:</strong> 网格变形、基向量变化</li>
+                    <li><strong>教育价值:</strong> 理解神经网络权重矩阵</li>
+                </ul>
+                <a href="./矩阵迷宫/index.html" class="play-btn">开始游戏 →</a>
+            </div>
+
+            <div class="game-card">
+                <div class="game-icon">🎲</div>
+                <h2 class="game-title">概率迷雾</h2>
+                <p class="game-subtitle">贝叶斯推理</p>
+                <p class="game-description">
+                    在不确定的世界中，通过收集证据使用贝叶斯推理更新信念，做出最优决策。
+                </p>
+                <ul class="game-features">
+                    <li><strong>核心概念:</strong> 贝叶斯定理、先验后验、似然</li>
+                    <li><strong>4个场景:</strong> 医疗诊断、垃圾邮件、犯罪推理</li>
+                    <li><strong>实时计算:</strong> 显示完整的贝叶斯更新过程</li>
+                    <li><strong>教育价值:</strong> 理解概率图模型和生成模型</li>
+                </ul>
+                <a href="./概率迷雾/index.html" class="play-btn">开始游戏 →</a>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h2>🎯 设计理念</h2>
+            <p>
+                这个游戏系列不是教"如何使用ChatGPT"，而是教"如何创造ChatGPT"。
+                我们培养的是能够跨越20-30年的底层能力，而不是短期的工具使用技能。
+            </p>
+            
+            <div class="phase-grid">
+                <div class="phase-card">
+                    <h3>第一阶段 (已完成)</h3>
+                    <p>✅ 梯度下山 - 优化算法<br>
+                       ✅ 矩阵迷宫 - 线性代数<br>
+                       ✅ 概率迷雾 - 贝叶斯推理</p>
+                </div>
+                <div class="phase-card">
+                    <h3>第二阶段 (规划中)</h3>
+                    <p>🔜 神经网络工厂<br>
+                       🔜 注意力竞技场<br>
+                       🔜 Transformer原理</p>
+                </div>
+                <div class="phase-card">
+                    <h3>第三阶段 (规划中)</h3>
+                    <p>🔜 语言模型炼金术<br>
+                       🔜 提示工程实验室<br>
+                       🔜 强化学习竞技场</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h2>💡 核心能力培养</h2>
+            <ul>
+                <li><strong>数学基础:</strong> 线性代数、概率统计、微积分、优化理论</li>
+                <li><strong>算法思维:</strong> 动态规划、图算法、优化算法、近似算法</li>
+                <li><strong>深度学习:</strong> 神经网络、反向传播、注意力机制、Transformer</li>
+                <li><strong>大模型原理:</strong> 预训练、微调、对齐、提示工程</li>
+            </ul>
+        </div>
+
+        <div class="info-section">
+            <h2>🌟 为什么这些能力能持续20-30年？</h2>
+            <p>
+                <strong>基础性：</strong>不依赖特定工具或框架，理解底层原理<br>
+                <strong>原理性：</strong>理解why而不仅是how，能够举一反三<br>
+                <strong>可迁移：</strong>适用于未来的新技术和新场景<br>
+                <strong>创造性：</strong>能够创新而不仅是使用现有工具
+            </p>
+        </div>
+
+        <footer>
+            <p>姚班理念游戏系列 - 培养能创造AI的人</p>
+            <p>© 2026 AI Game Series</p>
+        </footer>
+    </div>
+</body>
+</html>
