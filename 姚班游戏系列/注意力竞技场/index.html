@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>注意力竞技场 - Attention机制</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>👁️ 注意力竞技场</h1>
+            <p class="subtitle">理解Transformer的核心：注意力机制</p>
+        </header>
+
+        <div class="game-area">
+            <div class="main-section">
+                <div class="sequence-panel">
+                    <h3>输入序列</h3>
+                    <div class="sequence-input">
+                        <input type="text" id="sequenceInput" placeholder="输入句子，如：我 爱 自然 语言 处理" value="我 爱 自然 语言 处理">
+                        <button id="updateBtn" class="btn-small">更新</button>
+                    </div>
+                    <div class="token-list" id="tokenList"></div>
+                </div>
+
+                <div class="attention-canvas">
+                    <h3>注意力热力图</h3>
+                    <canvas id="attentionCanvas"></canvas>
+                    <div class="attention-info">
+                        <span id="attentionInfo">点击查看注意力权重</span>
+                    </div>
+                </div>
+
+                <div class="qkv-panel">
+                    <h3>Query-Key-Value机制</h3>
+                    <div class="qkv-grid">
+                        <div class="qkv-section">
+                            <h4>Query (查询)</h4>
+                            <canvas id="queryCanvas"></canvas>
+                            <p class="qkv-desc">当前token想要什么信息</p>
+                        </div>
+                        <div class="qkv-section">
+                            <h4>Key (键)</h4>
+                            <canvas id="keyCanvas"></canvas>
+                            <p class="qkv-desc">每个token提供什么信息</p>
+                        </div>
+                        <div class="qkv-section">
+                            <h4>Value (值)</h4>
+                            <canvas id="valueCanvas"></canvas>
+                            <p class="qkv-desc">实际传递的信息内容</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <div class="config-section">
+                    <h3>注意力配置</h3>
+                    
+                    <div class="config-group">
+                        <label>注意力类型:</label>
+                        <select id="attentionType">
+                            <option value="self">自注意力 (Self-Attention)</option>
+                            <option value="masked">掩码注意力 (Masked)</option>
+                            <option value="cross">交叉注意力 (Cross)</option>
+                        </select>
+                    </div>
+
+                    <div class="config-group">
+                        <label>头数 (Heads): <span id="headsValue">1</span></label>
+                        <input type="range" id="heads" min="1" max="8" value="1">
+                    </div>
+
+                    <div class="config-group">
+                        <label>温度 (Temperature): <span id="tempValue">1.0</span></label>
+                        <input type="range" id="temperature" min="0.1" max="2" step="0.1" value="1">
+                    </div>
+
+                    <div class="config-group">
+                        <label>维度 (d_model): <span id="dimValue">64</span></label>
+                        <input type="range" id="dimension" min="32" max="128" step="16" value="64">
+                    </div>
+                </div>
+
+                <div class="formula-section">
+                    <h3>注意力公式</h3>
+                    <div class="formula-box">
+                        <div class="formula-line">
+                            Attention(Q, K, V) = softmax(<span class="fraction">
+                                <span class="num">QK<sup>T</sup></span>
+                                <span class="den">√d<sub>k</sub></span>
+                            </span>)V
+                        </div>
+                    </div>
+                    <div class="formula-explain">
+                        <p><strong>Q</strong>: Query矩阵 (查询)</p>
+                        <p><strong>K</strong>: Key矩阵 (键)</p>
+                        <p><strong>V</strong>: Value矩阵 (值)</p>
+                        <p><strong>d<sub>k</sub></strong>: Key的维度</p>
+                        <p><strong>√d<sub>k</sub></strong>: 缩放因子，防止梯度消失</p>
+                    </div>
+                </div>
+
+                <div class="stats-section">
+                    <h3>统计信息</h3>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-label">序列长度:</span>
+                            <span class="stat-value" id="seqLen">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">参数量:</span>
+                            <span class="stat-value" id="params">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">计算复杂度:</span>
+                            <span class="stat-value" id="complexity">O(n²)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="example-section">
+                    <h3>示例句子</h3>
+                    <div class="example-list">
+                        <button class="example-btn" data-text="我 爱 自然 语言 处理">NLP示例</button>
+                        <button class="example-btn" data-text="The cat sat on the mat">英文示例</button>
+                        <button class="example-btn" data-text="机器 学习 改变 世界">短句</button>
+                        <button class="example-btn" data-text="Transformer 是 最 强大 的 模型">长句</button>
+                    </div>
+                </div>
+
+                <div class="level-section">
+                    <h3>学习关卡</h3>
+                    <div class="level-list">
+                        <button class="level-btn active" data-level="1">关卡1: 基础注意力</button>
+                        <button class="level-btn" data-level="2">关卡2: 多头注意力</button>
+                        <button class="level-btn" data-level="3">关卡3: 掩码机制</button>
+                        <button class="level-btn" data-level="4">关卡4: 交叉注意力</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tutorial">
+            <h3>💡 游戏说明</h3>
+            <ul>
+                <li><strong>目标:</strong> 理解注意力机制如何让模型关注重要信息</li>
+                <li><strong>Query:</strong> 当前位置想要查询什么信息</li>
+                <li><strong>Key:</strong> 每个位置能提供什么信息</li>
+                <li><strong>Value:</strong> 实际要传递的信息内容</li>
+                <li><strong>注意力权重:</strong> 通过Q·K计算相似度，决定关注程度</li>
+                <li><strong>Softmax:</strong> 将相似度转换为概率分布</li>
+            </ul>
+            
+            <div class="concepts">
+                <h4>🔑 核心概念</h4>
+                <p><strong>自注意力:</strong> 序列内部的关系，每个词关注其他词</p>
+                <p><strong>多头注意力:</strong> 并行计算多组注意力，捕捉不同特征</p>
+                <p><strong>掩码注意力:</strong> 只能看到之前的词，用于生成任务</p>
+                <p><strong>缩放点积:</strong> 除以√d防止softmax饱和</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

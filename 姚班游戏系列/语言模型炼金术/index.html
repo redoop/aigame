@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>语言模型炼金术 - LLM训练模拟</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🧪 语言模型炼金术</h1>
+            <p class="subtitle">从零训练你的第一个语言模型</p>
+        </header>
+
+        <div class="game-area">
+            <div class="main-section">
+                <div class="model-panel">
+                    <h3>模型架构</h3>
+                    <div class="model-config">
+                        <div class="config-row">
+                            <span class="config-label">层数 (Layers):</span>
+                            <input type="number" id="layers" value="6" min="1" max="24">
+                        </div>
+                        <div class="config-row">
+                            <span class="config-label">隐藏维度 (d_model):</span>
+                            <input type="number" id="dModel" value="512" min="128" max="2048" step="128">
+                        </div>
+                        <div class="config-row">
+                            <span class="config-label">注意力头 (Heads):</span>
+                            <input type="number" id="heads" value="8" min="1" max="16">
+                        </div>
+                        <div class="config-row">
+                            <span class="config-label">词表大小 (Vocab):</span>
+                            <input type="number" id="vocab" value="10000" min="1000" max="50000" step="1000">
+                        </div>
+                    </div>
+                    <div class="model-stats">
+                        <div class="stat-box">
+                            <span class="stat-label">参数量:</span>
+                            <span class="stat-value" id="params">0M</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-label">显存需求:</span>
+                            <span class="stat-value" id="memory">0GB</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="training-panel">
+                    <h3>训练进度</h3>
+                    <canvas id="lossCanvas"></canvas>
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="metric-label">训练损失</div>
+                            <div class="metric-value" id="trainLoss">-</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">困惑度 (PPL)</div>
+                            <div class="metric-value" id="perplexity">-</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">步数 (Steps)</div>
+                            <div class="metric-value" id="steps">0</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">学习率</div>
+                            <div class="metric-value" id="currentLR">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="generation-panel">
+                    <h3>文本生成测试</h3>
+                    <div class="prompt-input">
+                        <input type="text" id="promptInput" placeholder="输入提示词..." value="人工智能">
+                        <button id="generateBtn" class="btn-small">生成</button>
+                    </div>
+                    <div class="generated-text" id="generatedText">
+                        训练模型后可以生成文本...
+                    </div>
+                    <div class="generation-params">
+                        <label>温度: <span id="tempValue">1.0</span></label>
+                        <input type="range" id="temperature" min="0.1" max="2" step="0.1" value="1">
+                        <label>最大长度: <span id="maxLenValue">50</span></label>
+                        <input type="range" id="maxLength" min="10" max="200" step="10" value="50">
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <div class="dataset-section">
+                    <h3>数据集</h3>
+                    <select id="dataset">
+                        <option value="wiki">维基百科 (10M tokens)</option>
+                        <option value="news">新闻语料 (5M tokens)</option>
+                        <option value="code">代码数据 (3M tokens)</option>
+                        <option value="dialogue">对话数据 (2M tokens)</option>
+                    </select>
+                    <div class="dataset-info">
+                        <p id="datasetDesc">高质量的中文维基百科文本</p>
+                    </div>
+                </div>
+
+                <div class="training-config">
+                    <h3>训练配置</h3>
+                    <div class="config-group">
+                        <label>批大小 (Batch Size):</label>
+                        <input type="number" id="batchSize" value="32" min="1" max="128">
+                    </div>
+                    <div class="config-group">
+                        <label>学习率:</label>
+                        <input type="number" id="learningRate" value="0.0001" step="0.00001" min="0.00001" max="0.01">
+                    </div>
+                    <div class="config-group">
+                        <label>训练步数:</label>
+                        <input type="number" id="maxSteps" value="1000" min="100" max="10000" step="100">
+                    </div>
+                    <div class="config-group">
+                        <label>优化器:</label>
+                        <select id="optimizer">
+                            <option value="adam">Adam</option>
+                            <option value="adamw">AdamW</option>
+                            <option value="sgd">SGD</option>
+                        </select>
+                    </div>
+                    <div class="config-group">
+                        <label>学习率调度:</label>
+                        <select id="scheduler">
+                            <option value="cosine">Cosine</option>
+                            <option value="linear">Linear</option>
+                            <option value="constant">Constant</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button id="trainBtn" class="btn btn-primary">开始训练</button>
+                    <button id="stopBtn" class="btn btn-secondary">停止</button>
+                    <button id="saveBtn" class="btn btn-success">保存模型</button>
+                </div>
+
+                <div class="presets-section">
+                    <h3>预设配置</h3>
+                    <div class="preset-list">
+                        <button class="preset-btn" data-preset="tiny">Tiny (10M)</button>
+                        <button class="preset-btn" data-preset="small">Small (100M)</button>
+                        <button class="preset-btn" data-preset="base">Base (350M)</button>
+                        <button class="preset-btn" data-preset="large">Large (1B)</button>
+                    </div>
+                </div>
+
+                <div class="phase-section">
+                    <h3>训练阶段</h3>
+                    <div class="phase-list">
+                        <div class="phase-item" data-phase="pretrain">
+                            <span class="phase-icon">📚</span>
+                            <div class="phase-info">
+                                <div class="phase-name">预训练</div>
+                                <div class="phase-desc">大规模无监督学习</div>
+                            </div>
+                        </div>
+                        <div class="phase-item" data-phase="finetune">
+                            <span class="phase-icon">🎯</span>
+                            <div class="phase-info">
+                                <div class="phase-name">微调</div>
+                                <div class="phase-desc">特定任务优化</div>
+                            </div>
+                        </div>
+                        <div class="phase-item" data-phase="rlhf">
+                            <span class="phase-icon">🤝</span>
+                            <div class="phase-info">
+                                <div class="phase-name">RLHF</div>
+                                <div class="phase-desc">人类反馈对齐</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tutorial">
+            <h3>💡 游戏说明</h3>
+            <ul>
+                <li><strong>目标:</strong> 理解大语言模型的训练过程和关键参数</li>
+                <li><strong>预训练:</strong> 在大规模文本上学习语言规律</li>
+                <li><strong>困惑度 (PPL):</strong> 越低越好，表示模型预测能力</li>
+                <li><strong>参数量:</strong> 影响模型能力和训练成本</li>
+                <li><strong>学习率调度:</strong> 动态调整学习率加速收敛</li>
+            </ul>
+            
+            <div class="concepts">
+                <h4>🔑 核心概念</h4>
+                <p><strong>自回归:</strong> 根据前文预测下一个词</p>
+                <p><strong>Transformer:</strong> 基于注意力机制的架构</p>
+                <p><strong>涌现能力:</strong> 规模达到阈值后出现新能力</p>
+                <p><strong>规模定律:</strong> 性能随参数量、数据量、计算量增长</p>
+            </div>
+            
+            <div class="tips">
+                <h4>💡 训练技巧</h4>
+                <p><strong>小模型:</strong> 快速实验，验证想法</p>
+                <p><strong>大模型:</strong> 更强能力，但需要更多资源</p>
+                <p><strong>学习率:</strong> 太大不收敛，太小训练慢</p>
+                <p><strong>批大小:</strong> 越大越稳定，但显存需求高</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

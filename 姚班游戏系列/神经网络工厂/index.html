@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>神经网络工厂 - 网络架构设计</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🧠 神经网络工厂</h1>
+            <p class="subtitle">设计你的第一个神经网络</p>
+        </header>
+
+        <div class="game-area">
+            <div class="main-section">
+                <div class="network-canvas">
+                    <h3>网络架构</h3>
+                    <canvas id="networkCanvas"></canvas>
+                    <div class="layer-info" id="layerInfo">点击层查看详情</div>
+                </div>
+
+                <div class="training-panel">
+                    <h3>训练过程</h3>
+                    <canvas id="lossCanvas"></canvas>
+                    <div class="metrics">
+                        <div class="metric-item">
+                            <span class="metric-label">训练损失:</span>
+                            <span class="metric-value" id="trainLoss">-</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">验证准确率:</span>
+                            <span class="metric-value" id="valAcc">-</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">迭代次数:</span>
+                            <span class="metric-value" id="epoch">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="data-panel">
+                    <h3>数据可视化</h3>
+                    <canvas id="dataCanvas"></canvas>
+                    <div class="data-info">
+                        <span id="datasetName">选择一个任务开始</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <div class="task-section">
+                    <h3>任务选择</h3>
+                    <select id="taskSelect">
+                        <option value="xor">XOR问题 (非线性)</option>
+                        <option value="circle">圆形分类</option>
+                        <option value="spiral">螺旋分类</option>
+                        <option value="mnist">手写数字 (简化)</option>
+                    </select>
+                </div>
+
+                <div class="layer-builder">
+                    <h3>添加层</h3>
+                    <div class="layer-buttons">
+                        <button class="layer-btn" data-type="dense">全连接层</button>
+                        <button class="layer-btn" data-type="activation">激活函数</button>
+                        <button class="layer-btn" data-type="dropout">Dropout</button>
+                        <button class="layer-btn" data-type="batchnorm">批归一化</button>
+                    </div>
+                </div>
+
+                <div class="example-networks">
+                    <h3>样例网络</h3>
+                    <div class="example-buttons">
+                        <button class="example-btn" data-example="simple">简单网络</button>
+                        <button class="example-btn" data-example="deep">深度网络</button>
+                        <button class="example-btn" data-example="regularized">正则化网络</button>
+                        <button class="example-btn" data-example="resnet">ResNet风格</button>
+                    </div>
+                </div>
+
+                <div class="layer-config" id="layerConfig">
+                    <h3>层配置</h3>
+                    <div class="config-content">
+                        <div class="config-group">
+                            <label>神经元数量:</label>
+                            <input type="number" id="neurons" value="16" min="1" max="128">
+                        </div>
+                        <div class="config-group">
+                            <label>激活函数:</label>
+                            <select id="activation">
+                                <option value="relu">ReLU</option>
+                                <option value="sigmoid">Sigmoid</option>
+                                <option value="tanh">Tanh</option>
+                                <option value="linear">Linear</option>
+                            </select>
+                        </div>
+                        <div class="config-group">
+                            <label>Dropout率:</label>
+                            <input type="range" id="dropoutRate" min="0" max="0.5" step="0.1" value="0.2">
+                            <span id="dropoutValue">0.2</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="training-config">
+                    <h3>训练配置</h3>
+                    <div class="config-group">
+                        <label>学习率:</label>
+                        <input type="number" id="learningRate" value="0.01" step="0.001" min="0.001" max="1">
+                    </div>
+                    <div class="config-group">
+                        <label>批大小:</label>
+                        <input type="number" id="batchSize" value="32" min="1" max="128">
+                    </div>
+                    <div class="config-group">
+                        <label>优化器:</label>
+                        <select id="optimizer">
+                            <option value="sgd">SGD</option>
+                            <option value="momentum">Momentum</option>
+                            <option value="adam">Adam</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button id="trainBtn" class="btn btn-primary">开始训练</button>
+                    <button id="stopBtn" class="btn btn-secondary">停止</button>
+                    <button id="resetBtn" class="btn btn-danger">重置网络</button>
+                </div>
+
+                <div class="architecture-list">
+                    <h3>当前架构</h3>
+                    <div id="layerList"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tutorial">
+            <h3>💡 游戏说明</h3>
+            <ul>
+                <li><strong>目标:</strong> 设计神经网络架构解决分类问题</li>
+                <li><strong>全连接层:</strong> 每个神经元连接到上一层所有神经元</li>
+                <li><strong>激活函数:</strong> 引入非线性，ReLU最常用</li>
+                <li><strong>Dropout:</strong> 随机丢弃神经元，防止过拟合</li>
+                <li><strong>批归一化:</strong> 稳定训练，加速收敛</li>
+            </ul>
+            
+            <div class="tips">
+                <h4>🎯 设计技巧</h4>
+                <p><strong>XOR问题:</strong> 至少需要一个隐藏层</p>
+                <p><strong>复杂问题:</strong> 增加层数和神经元数量</p>
+                <p><strong>过拟合:</strong> 添加Dropout或减少参数</p>
+                <p><strong>训练不稳定:</strong> 降低学习率或添加批归一化</p>
+            </div>
+            
+            <div class="examples-info">
+                <h4>📚 样例网络说明</h4>
+                <p><strong>简单网络:</strong> 2层隐藏层，适合XOR等简单非线性问题</p>
+                <p><strong>深度网络:</strong> 4层隐藏层，适合螺旋等复杂问题</p>
+                <p><strong>正则化网络:</strong> 使用Dropout防止过拟合</p>
+                <p><strong>ResNet风格:</strong> 批归一化 + 深层网络，训练更稳定</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
