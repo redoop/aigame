@@ -9,3 +9,4 @@ ai game
 - [小丑鱼游戏](./小丑鱼游戏/index.html)
 - [赛车跑酷](./赛车跑酷/index.html)
 - [屎壳郎的日记](./屎壳郎的日记/index.html)
+- [原子弹炸八嘎](./原子弹炸八嘎/index.html)
