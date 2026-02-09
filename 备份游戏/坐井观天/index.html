@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>坐井观天</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <div class="sky">
+            <div class="cloud cloud1"></div>
+            <div class="cloud cloud2"></div>
+            <div class="bird" id="bird">🐦</div>
+        </div>
+        
+        <div class="well">
+            <div class="well-top">
+                <div class="stone stone-left">
+                    <div class="grass"></div>
+                    <div class="grass"></div>
+                </div>
+                <div class="stone stone-right">
+                    <div class="grass"></div>
+                </div>
+            </div>
+            <div class="ground-left">
+                <div class="tree"></div>
+                <div class="grass"></div>
+                <div class="grass"></div>
+            </div>
+            <div class="ground-right">
+                <div class="grass"></div>
+                <div class="grass"></div>
+            </div>
+            <div class="well-body">
+                <div class="water">
+                    <div class="water-grass"></div>
+                    <div class="water-grass"></div>
+                    <div class="water-grass"></div>
+                </div>
+                <div class="wall-stone"><span class="moss"></span></div>
+                <div class="wall-stone"><span class="moss"></span></div>
+                <div class="wall-stone"><span class="moss"></span></div>
+                <div class="wall-stone"><span class="moss"></span></div>
+                <div class="wall-stone"><span class="moss"></span></div>
+                <div class="wall-stone"><span class="moss"></span></div>
+                <div class="wall-stone"><span class="moss"></span></div>
+                <div class="frog" id="frog">
+                    <div class="frog-body">
+                        <div class="frog-eye left"></div>
+                        <div class="frog-eye right"></div>
+                    </div>
+                    <div class="frog-leg left">
+                        <div class="frog-foot"></div>
+                    </div>
+                    <div class="frog-leg right">
+                        <div class="frog-foot"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="dialog-box" id="dialog"></div>
+        <div class="power-bar" id="powerBar">
+            <div class="power-fill" id="powerFill"></div>
+        </div>
+        <button class="jump-btn" id="jumpBtn">点击让青蛙跳上去</button>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
