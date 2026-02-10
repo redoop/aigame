@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>黑洞吞噬世界</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #87CEEB; /* 天空蓝色 */
+            font-family: Arial, sans-serif;
+        }
+        
+        #gameCanvas {
+            background-color: #228B22; /* 草地绿色 */
+            display: block;
+        }
+        
+        #scorePanel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-size: 18px;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        
+        #instructions {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            color: white;
+            font-size: 14px;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="scorePanel">分数: 0 | 黑洞大小: 10</div>
+    <div id="instructions">使用方向键或WASD控制黑洞移动 | 鼠标点击发射暗物质弹</div>
+
+    <script>
+        // 获取画布和上下文
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 设置画布尺寸
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        
+        // 无限地图参数
+        const MAP_SIZE = 5000; // 无限地图大小
+        
+        // 音频上下文初始化
+        let audioContext;
+        let backgroundSound;
+        let consumeSound;
+        let fireSound;
+        let hitSound;
+        let damageSound;
+        
+        // 初始化音频
+        function initAudio() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // 创建背景音效
+                createBackgroundSound();
+                
+                // 创建吞噬音效
+                createConsumeSound();
+                
+                // 创建发射音效
+                createFireSound();
+                
+                // 创建击中音效
+                createHitSound();
+                
+                // 创建受伤音效
+                createDamageSound();
+            } catch (e) {
+                console.log("音频初始化失败:", e);
+            }
+        }
+        
+        // 创建背景音乐
+        function createBackgroundSound() {
+            // 创建低频振荡器模拟宇宙背景音
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.type = 'sine';
+            oscillator.frequency.value = 40; // 低频
+            gainNode.gain.value = 0.05; // 音量
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.start();
+            
+            // 保存引用以便后续控制
+            backgroundSound = { oscillator, gainNode };
+        }
+        
+        // 创建吞噬音效
+        function createConsumeSound() {
+            // 创建吞噬音效
+            consumeSound = function() {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.type = 'sawtooth';
+                oscillator.frequency.setValueAtTime(100, audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(50, audioContext.currentTime + 0.3);
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.start();
+                oscillator.stop(audioContext.currentTime + 0.3);
+            };
+        }
+        
+        // 创建发射音效
+        function createFireSound() {
+            fireSound = function() {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.type = 'square';
+                oscillator.frequency.setValueAtTime(400, audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(200, audioContext.currentTime + 0.1);
+                
+                gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.start();
+                oscillator.stop(audioContext.currentTime + 0.1);
+            };
+        }
+        
+        // 创建击中音效
+        function createHitSound() {
+            hitSound = function() {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.type = 'triangle';
+                oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 0.2);
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.start();
+                oscillator.stop(audioContext.currentTime + 0.2);
+            };
+        }
+        
+        // 创建受伤音效
+        function createDamageSound() {
+            damageSound = function() {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.type = 'sawtooth';
+                oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(50, audioContext.currentTime + 0.15);
+                
+                gainNode.gain.setValueAtTime(0.25, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.start();
+                oscillator.stop(audioContext.currentTime + 0.15);
+            };
+        }
+        
+        // 黑洞对象
+        const blackhole = {
+            x: MAP_SIZE / 2,
+            y: MAP_SIZE / 2,
+            radius: 10,
+            speed: 3,
+            color: '#000000',
+            rotation: 0,
+            health: 100,
+            maxHealth: 100,
+            speedMultiplier: 1
+        };
+        
+        // 武器系统
+        let weapons = [];
+        let blackholeWeapons = [];
+        let lastFireTime = 0;
+        const FIRE_COOLDOWN = 500; // 发射冷却时间（毫秒）
+        
+        // 游戏对象数组
+        let objects = [];
+        let score = 0;
+        
+        // 对象类型定义
+        const objectTypes = [
+            { type: 'grass', size: 5, color: '#32CD32', points: 1, category: 'static' },
+            { type: 'stone', size: 15, color: '#808080', points: 5, category: 'static' },
+            { type: 'tree', size: 20, color: '#8B4513', points: 10, category: 'static' },
+            { type: 'car', size: 25, color: '#FF0000', points: 15, category: 'static' },
+            { type: 'house', size: 40, color: '#8B4513', points: 30, category: 'static' },
+            { type: 'animal', size: 10, color: '#FFA500', points: 8, category: 'moving' },
+            { type: 'person', size: 12, color: '#FF69B4', points: 12, category: 'moving' },
+            { type: 'alien', size: 14, color: '#32CD99', points: 15, category: 'moving' },
+            { type: 'spaceship', size: 30, color: '#C0C0C0', points: 25, category: 'moving' }
+        ];
+        
+        // 初始化游戏对象
+        function initObjects() {
+            objects = [];
+            
+            // 创建静态对象
+            for (let i = 0; i < 50; i++) {
+                const type = Math.random() < 0.5 ? 
+                    objectTypes[0] : // grass
+                    Math.random() < 0.6 ? objectTypes[1] : // stone
+                    Math.random() < 0.7 ? objectTypes[2] : // tree
+                    Math.random() < 0.8 ? objectTypes[3] : // car
+                    objectTypes[4]; // house
+                
+                // 确保对象不会与黑洞初始位置重叠
+                let x, y;
+                do {
+                    x = Math.random() * MAP_SIZE;
+                    y = Math.random() * MAP_SIZE;
+                } while (distance(x, y, blackhole.x, blackhole.y) < blackhole.radius + type.size);
+                
+                objects.push({
+                    x: x,
+                    y: y,
+                    radius: type.size,
+                    color: type.color,
+                    type: type.type,
+                    points: type.points,
+                    category: type.category,
+                    originalSpeed: 0.5 + Math.random() * 1.5,
+                    speed: 0,
+                    direction: Math.random() * Math.PI * 2
+                });
+            }
+            
+            // 创建移动对象
+            for (let i = 0; i < 20; i++) {
+                const rand = Math.random();
+                let type;
+                
+                if (rand < 0.4) type = objectTypes[5]; // animal
+                else if (rand < 0.6) type = objectTypes[6]; // person
+                else if (rand < 0.8) type = objectTypes[7]; // alien
+                else type = objectTypes[8]; // spaceship
+                
+                let x, y;
+                do {
+                    x = Math.random() * MAP_SIZE;
+                    y = Math.random() * MAP_SIZE;
+                } while (distance(x, y, blackhole.x, blackhole.y) < blackhole.radius + type.size);
+                
+                objects.push({
+                    x: x,
+                    y: y,
+                    radius: type.size,
+                    color: type.color,
+                    type: type.type,
+                    points: type.points,
+                    category: type.category,
+                    originalSpeed: type.category === 'moving' ? 1 + Math.random() * 2 : 0,
+                    speed: type.category === 'moving' ? 1 + Math.random() * 2 : 0,
+                    direction: Math.random() * Math.PI * 2
+                });
+            }
+        }
+        
+        // 计算两点间距离
+        function distance(x1, y1, x2, y2) {
+            return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+        }
+        
+        // 更新游戏状态
+        function update() {
+            // 更新黑洞旋转
+            blackhole.rotation += 0.05;
+            
+            // 处理移动对象（动物和人）的移动逻辑
+            for (let obj of objects) {
+                if (obj.category === 'moving') {
+                    // 计算到黑洞的距离
+                    const distToBlackhole = distance(obj.x, obj.y, blackhole.x, blackhole.y);
+                    
+                    // 外星人和飞船主动追杀黑洞
+                    if (obj.type === 'alien' || obj.type === 'spaceship') {
+                        const chaseRange = obj.type === 'spaceship' ? 500 : 350;
+                        
+                        if (distToBlackhole < chaseRange) {
+                            // 追击黑洞
+                            const angleToBlackhole = Math.atan2(
+                                blackhole.y - obj.y,
+                                blackhole.x - obj.x
+                            );
+                            
+                            const chaseSpeed = obj.originalSpeed * 1.5;
+                            obj.x += Math.cos(angleToBlackhole) * chaseSpeed;
+                            obj.y += Math.sin(angleToBlackhole) * chaseSpeed;
+                            
+                            // 保持一定距离，边追边攻击
+                            if (distToBlackhole < 150) {
+                                obj.x -= Math.cos(angleToBlackhole) * chaseSpeed * 0.5;
+                                obj.y -= Math.sin(angleToBlackhole) * chaseSpeed * 0.5;
+                            }
+                        } else {
+                            // 随机巡逻
+                            obj.x += Math.cos(obj.direction) * obj.originalSpeed * 0.5;
+                            obj.y += Math.sin(obj.direction) * obj.originalSpeed * 0.5;
+                            
+                            if (Math.random() < 0.02) {
+                                obj.direction = Math.random() * Math.PI * 2;
+                            }
+                        }
+                        
+                        // 边界检测
+                        obj.x = Math.max(0, Math.min(MAP_SIZE, obj.x));
+                        obj.y = Math.max(0, Math.min(MAP_SIZE, obj.y));
+                        
+                    } else if (distToBlackhole < 200) {
+                        // 其他移动对象逃跑
+                        // 计算逃跑方向（远离黑洞）
+                        const angleToBlackhole = Math.atan2(
+                            blackhole.y - obj.y,
+                            blackhole.x - obj.x
+                        );
+                        
+                        // 逃跑方向是相反的方向
+                        const escapeAngle = angleToBlackhole + Math.PI;
+                        
+                        // 根据距离调整速度（越近跑得越慢）
+                        const proximityFactor = Math.min(1, distToBlackhole / 100);
+                        obj.speed = obj.originalSpeed * proximityFactor;
+                        
+                        // 更新位置
+                        obj.x += Math.cos(escapeAngle) * obj.speed;
+                        obj.y += Math.sin(escapeAngle) * obj.speed;
+                        
+                        // 边界检测 - 限制在大地图范围内
+                        if (obj.x < 0) obj.x = 0;
+                        if (obj.x > MAP_SIZE) obj.x = MAP_SIZE;
+                        if (obj.y < 0) obj.y = 0;
+                        if (obj.y > MAP_SIZE) obj.y = MAP_SIZE;
+                    } else {
+                        // 随机移动
+                        obj.x += Math.cos(obj.direction) * obj.originalSpeed * 0.5;
+                        obj.y += Math.sin(obj.direction) * obj.originalSpeed * 0.5;
+                        
+                        // 有时改变方向
+                        if (Math.random() < 0.02) {
+                            obj.direction = Math.random() * Math.PI * 2;
+                        }
+                        
+                        // 边界检测 - 限制在大地图范围内
+                        if (obj.x < 0 || obj.x > MAP_SIZE) obj.direction = Math.PI - obj.direction;
+                        if (obj.y < 0 || obj.y > MAP_SIZE) obj.direction = -obj.direction;
+                        
+                        obj.x = Math.max(0, Math.min(MAP_SIZE, obj.x));
+                        obj.y = Math.max(0, Math.min(MAP_SIZE, obj.y));
+                    }
+                }
+            }
+            
+            // 检查碰撞
+            for (let i = objects.length - 1; i >= 0; i--) {
+                const obj = objects[i];
+                const dist = distance(blackhole.x, blackhole.y, obj.x, obj.y);
+                
+                // 如果黑洞足够大可以吞噬对象
+                if (dist < blackhole.radius + obj.radius && blackhole.radius >= obj.radius * 0.7) {
+                    // 增加分数
+                    score += obj.points;
+                    
+                    // 增大黑洞
+                    blackhole.radius += obj.points * 0.1;
+                    
+                    // 播放吞噬音效
+                    if (consumeSound) {
+                        consumeSound();
+                    }
+                    
+                    // 移除被吞噬的对象
+                    objects.splice(i, 1);
+                    
+                    // 添加新对象
+                    addObject();
+                }
+            }
+            
+            // 更新武器
+            for (let i = weapons.length - 1; i >= 0; i--) {
+                const weapon = weapons[i];
+                weapon.x += weapon.vx;
+                weapon.y += weapon.vy;
+                weapon.life--;
+                
+                // 检查武器是否击中黑洞
+                const distToBlackhole = distance(weapon.x, weapon.y, blackhole.x, blackhole.y);
+                if (distToBlackhole < blackhole.radius) {
+                    applyWeaponEffect(weapon);
+                    weapons.splice(i, 1);
+                    if (damageSound) damageSound();
+                    continue;
+                }
+                
+                // 移除超时武器
+                if (weapon.life <= 0) {
+                    weapons.splice(i, 1);
+                }
+            }
+            
+            // 恢复黑洞速度
+            if (blackhole.speedMultiplier < 1) {
+                blackhole.speedMultiplier += 0.01;
+            }
+            
+            // 更新黑洞武器
+            for (let i = blackholeWeapons.length - 1; i >= 0; i--) {
+                const weapon = blackholeWeapons[i];
+                weapon.x += weapon.vx;
+                weapon.y += weapon.vy;
+                weapon.life--;
+                weapon.rotation += 0.2;
+                
+                // 检查是否击中外星人或飞船
+                for (let j = objects.length - 1; j >= 0; j--) {
+                    const obj = objects[j];
+                    if ((obj.type === 'alien' || obj.type === 'spaceship') && 
+                        distance(weapon.x, weapon.y, obj.x, obj.y) < obj.radius + weapon.size) {
+                        // 击杀目标
+                        score += obj.points * 2; // 击杀奖励双倍分数
+                        objects.splice(j, 1);
+                        blackholeWeapons.splice(i, 1);
+                        if (hitSound) hitSound();
+                        addObject();
+                        break;
+                    }
+                }
+                
+                // 移除超时武器
+                if (weapon.life <= 0) {
+                    blackholeWeapons.splice(i, 1);
+                }
+            }
+        }
+        
+        // 应用武器效果
+        function applyWeaponEffect(weapon) {
+            switch(weapon.type) {
+                case 'antimatter':
+                    blackhole.radius = Math.max(5, blackhole.radius - 2);
+                    score = Math.max(0, score - 10);
+                    break;
+                case 'gravity':
+                    blackhole.speedMultiplier = 0.3;
+                    break;
+                case 'laser':
+                    blackhole.radius = Math.max(5, blackhole.radius - 0.5);
+                    score = Math.max(0, score - 3);
+                    break;
+                case 'bomb':
+                    blackhole.radius = Math.max(5, blackhole.radius - 5);
+                    score = Math.max(0, score - 30);
+                    break;
+            }
+        }
+        
+        // 添加新对象
+        function addObject() {
+            if (objects.length < 70) { // 限制对象总数
+                const rand = Math.random();
+                let type;
+                
+                if (rand < 0.25) type = objectTypes[0]; // grass
+                else if (rand < 0.4) type = objectTypes[1]; // stone
+                else if (rand < 0.5) type = objectTypes[2]; // tree
+                else if (rand < 0.6) type = objectTypes[5]; // animal
+                else if (rand < 0.7) type = objectTypes[6]; // person
+                else if (rand < 0.75) type = objectTypes[7]; // alien
+                else if (rand < 0.8) type = objectTypes[8]; // spaceship
+                else if (rand < 0.9) type = objectTypes[3]; // car
+                else type = objectTypes[4]; // house
+                
+                // 在随机位置添加新对象（在大地图范围内）
+                let x, y;
+                do {
+                    x = Math.random() * MAP_SIZE;
+                    y = Math.random() * MAP_SIZE;
+                } while (distance(x, y, blackhole.x, blackhole.y) < blackhole.radius + type.size);
+                
+                objects.push({
+                    x: x,
+                    y: y,
+                    radius: type.size,
+                    color: type.color,
+                    type: type.type,
+                    points: type.points,
+                    category: type.category,
+                    originalSpeed: type.category === 'moving' ? 0.5 + Math.random() * 1.5 : 0,
+                    speed: type.category === 'moving' ? 0.5 + Math.random() * 1.5 : 0,
+                    direction: Math.random() * Math.PI * 2
+                });
+            }
+        }
+        
+        // 绘制游戏
+        function draw() {
+            // 计算相机偏移（使黑洞始终在屏幕中央）
+            const offsetX = blackhole.x - canvas.width / 2;
+            const offsetY = blackhole.y - canvas.height / 2;
+            
+            // 清除画布
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制背景（天空）
+            ctx.fillStyle = '#87CEEB';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制可视区域内的草地纹理
+            drawGrass(offsetX, offsetY);
+            
+            // 绘制可视区域内的对象
+            for (const obj of objects) {
+                // 只绘制在可视区域内或接近可视区域的对象
+                if (isWithinView(obj.x, obj.y, offsetX, offsetY)) {
+                    const screenX = obj.x - offsetX;
+                    const screenY = obj.y - offsetY;
+                    
+                    ctx.beginPath();
+                    
+                    if (obj.type === 'tree') {
+                        // 绘制树（树干+树冠）
+                        ctx.fillStyle = '#8B4513';
+                        ctx.fillRect(screenX - 3, screenY, 6, obj.radius);
+                        
+                        ctx.beginPath();
+                        ctx.arc(screenX, screenY - obj.radius/2, obj.radius, 0, Math.PI * 2);
+                        ctx.fillStyle = '#228B22';
+                        ctx.fill();
+                    } else if (obj.type === 'house') {
+                        // 绘制房子
+                        ctx.fillStyle = '#A52A2A';
+                        ctx.fillRect(screenX - obj.radius, screenY - obj.radius, obj.radius * 2, obj.radius * 1.5);
+                        
+                        // 房顶
+                        ctx.beginPath();
+                        ctx.moveTo(screenX - obj.radius - 5, screenY - obj.radius);
+                        ctx.lineTo(screenX, screenY - obj.radius * 1.5);
+                        ctx.lineTo(screenX + obj.radius + 5, screenY - obj.radius);
+                        ctx.closePath();
+                        ctx.fillStyle = '#8B0000';
+                        ctx.fill();
+                    } else if (obj.type === 'car') {
+                        // 绘制汽车
+                        ctx.fillStyle = obj.color;
+                        ctx.fillRect(screenX - obj.radius, screenY - obj.radius/2, obj.radius * 2, obj.radius);
+                        
+                        // 车轮
+                        ctx.fillStyle = '#000';
+                        ctx.beginPath();
+                        ctx.arc(screenX - obj.radius/1.5, screenY + obj.radius/3, obj.radius/3, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.beginPath();
+                        ctx.arc(screenX + obj.radius/1.5, screenY + obj.radius/3, obj.radius/3, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else if (obj.type === 'person') {
+                        // 绘制人物
+                        ctx.fillStyle = obj.color;
+                        // 头部
+                        ctx.beginPath();
+                        ctx.arc(screenX, screenY - obj.radius/2, obj.radius/3, 0, Math.PI * 2);
+                        ctx.fill();
+                        // 身体
+                        ctx.fillRect(screenX - obj.radius/4, screenY - obj.radius/2, obj.radius/2, obj.radius/1.5);
+                    } else if (obj.type === 'animal') {
+                        // 绘制动物
+                        ctx.fillStyle = obj.color;
+                        ctx.beginPath();
+                        ctx.arc(screenX, screenY, obj.radius/2, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        // 耳朵
+                        ctx.beginPath();
+                        ctx.arc(screenX - obj.radius/3, screenY - obj.radius/3, obj.radius/4, 0, Math.PI * 2);
+                        ctx.arc(screenX + obj.radius/3, screenY - obj.radius/3, obj.radius/4, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else if (obj.type === 'alien') {
+                        // 绘制外星人
+                        ctx.fillStyle = obj.color;
+                        // 头部
+                        ctx.beginPath();
+                        ctx.arc(screenX, screenY - obj.radius/3, obj.radius/2, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        // 身体（椭圆形）
+                        ctx.beginPath();
+                        ctx.ellipse(screenX, screenY + obj.radius/4, obj.radius/2.5, obj.radius/1.5, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        // 大眼睛
+                        ctx.fillStyle = '#FFFFFF';
+                        ctx.beginPath();
+                        ctx.arc(screenX - obj.radius/5, screenY - obj.radius/4, obj.radius/6, 0, Math.PI * 2);
+                        ctx.arc(screenX + obj.radius/5, screenY - obj.radius/4, obj.radius/6, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        // 眼珠
+                        ctx.fillStyle = '#0000FF';
+                        ctx.beginPath();
+                        ctx.arc(screenX - obj.radius/5, screenY - obj.radius/4, obj.radius/10, 0, Math.PI * 2);
+                        ctx.arc(screenX + obj.radius/5, screenY - obj.radius/4, obj.radius/10, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        // 外星人发射武器
+                        if (Math.random() < 0.015 && distance(obj.x, obj.y, blackhole.x, blackhole.y) < 300) {
+                            fireWeapon(obj);
+                        }
+                    } else if (obj.type === 'spaceship') {
+                        // 绘制飞船
+                        ctx.fillStyle = obj.color;
+                        
+                        // 飞船主体（椭圆）
+                        ctx.save();
+                        ctx.translate(screenX, screenY);
+                        
+                        // 飞船机身
+                        ctx.beginPath();
+                        ctx.ellipse(0, 0, obj.radius * 0.8, obj.radius * 0.5, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        // 驾驶舱
+                        ctx.fillStyle = '#87CEEB'; // 天空蓝
+                        ctx.beginPath();
+                        ctx.ellipse(0, -obj.radius * 0.1, obj.radius * 0.4, obj.radius * 0.3, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        // 机翼
+                        ctx.fillStyle = obj.color;
+                        ctx.beginPath();
+                        ctx.ellipse(-obj.radius * 0.6, 0, obj.radius * 0.3, obj.radius * 0.2, 0, 0, Math.PI * 2);
+                        ctx.ellipse(obj.radius * 0.6, 0, obj.radius * 0.3, obj.radius * 0.2, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        // 引擎光效
+                        const gradient = ctx.createRadialGradient(0, obj.radius * 0.5, 0, 0, obj.radius * 0.5, obj.radius * 0.4);
+                        gradient.addColorStop(0, '#FFFF00');
+                        gradient.addColorStop(0.5, '#FFA500');
+                        gradient.addColorStop(1, 'transparent');
+                        
+                        ctx.fillStyle = gradient;
+                        ctx.beginPath();
+                        ctx.ellipse(0, obj.radius * 0.5, obj.radius * 0.3, obj.radius * 0.4, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        ctx.restore();
+                        
+                        // 飞船发射武器
+                        if (Math.random() < 0.025 && distance(obj.x, obj.y, blackhole.x, blackhole.y) < 400) {
+                            fireWeapon(obj);
+                        }
+                    } else {
+                        // 普通圆形对象
+                        ctx.arc(screenX, screenY, obj.radius, 0, Math.PI * 2);
+                        ctx.fillStyle = obj.color;
+                        ctx.fill();
+                    }
+                }
+            }
+            
+            // 绘制武器
+            for (const weapon of weapons) {
+                if (isWithinView(weapon.x, weapon.y, offsetX, offsetY)) {
+                    const screenX = weapon.x - offsetX;
+                    const screenY = weapon.y - offsetY;
+                    
+                    ctx.save();
+                    ctx.translate(screenX, screenY);
+                    
+                    switch(weapon.type) {
+                        case 'antimatter':
+                            const antimatterGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, weapon.size);
+                            antimatterGradient.addColorStop(0, '#FF00FF');
+                            antimatterGradient.addColorStop(0.5, '#8B00FF');
+                            antimatterGradient.addColorStop(1, 'rgba(139, 0, 255, 0)');
+                            ctx.fillStyle = antimatterGradient;
+                            ctx.beginPath();
+                            ctx.arc(0, 0, weapon.size, 0, Math.PI * 2);
+                            ctx.fill();
+                            break;
+                            
+                        case 'gravity':
+                            ctx.strokeStyle = `rgba(0, 100, 255, ${weapon.life / 60})`;
+                            ctx.lineWidth = 2;
+                            for (let i = 0; i < 3; i++) {
+                                ctx.beginPath();
+                                ctx.arc(0, 0, weapon.size + i * 5, 0, Math.PI * 2);
+                                ctx.stroke();
+                            }
+                            break;
+                            
+                        case 'laser':
+                            ctx.strokeStyle = '#FF0000';
+                            ctx.lineWidth = 3;
+                            ctx.beginPath();
+                            ctx.moveTo(-weapon.size, 0);
+                            ctx.lineTo(weapon.size, 0);
+                            ctx.stroke();
+                            
+                            const laserGlow = ctx.createRadialGradient(0, 0, 0, 0, 0, weapon.size/2);
+                            laserGlow.addColorStop(0, 'rgba(255, 0, 0, 0.8)');
+                            laserGlow.addColorStop(1, 'rgba(255, 0, 0, 0)');
+                            ctx.fillStyle = laserGlow;
+                            ctx.fillRect(-weapon.size, -weapon.size/2, weapon.size*2, weapon.size);
+                            break;
+                            
+                        case 'bomb':
+                            const bombGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, weapon.size);
+                            bombGradient.addColorStop(0, '#FFFF00');
+                            bombGradient.addColorStop(0.5, '#FFA500');
+                            bombGradient.addColorStop(1, '#FF4500');
+                            ctx.fillStyle = bombGradient;
+                            ctx.beginPath();
+                            ctx.arc(0, 0, weapon.size, 0, Math.PI * 2);
+                            ctx.fill();
+                            
+                            // 闪烁效果
+                            if (Math.floor(weapon.life / 5) % 2 === 0) {
+                                ctx.strokeStyle = '#FFFFFF';
+                                ctx.lineWidth = 2;
+                                ctx.stroke();
+                            }
+                            break;
+                    }
+                    
+                    ctx.restore();
+                }
+            }
+            
+            // 绘制黑洞武器
+            for (const weapon of blackholeWeapons) {
+                if (isWithinView(weapon.x, weapon.y, offsetX, offsetY)) {
+                    const screenX = weapon.x - offsetX;
+                    const screenY = weapon.y - offsetY;
+                    
+                    ctx.save();
+                    ctx.translate(screenX, screenY);
+                    ctx.rotate(weapon.rotation);
+                    
+                    // 暗物质弹
+                    const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, weapon.size);
+                    gradient.addColorStop(0, '#FF0000');
+                    gradient.addColorStop(0.5, '#8B0000');
+                    gradient.addColorStop(1, 'rgba(139, 0, 0, 0)');
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, weapon.size, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // 旋转尾迹
+                    for (let i = 0; i < 4; i++) {
+                        const angle = (i / 4) * Math.PI * 2;
+                        ctx.beginPath();
+                        ctx.moveTo(0, 0);
+                        ctx.lineTo(Math.cos(angle) * weapon.size * 1.5, Math.sin(angle) * weapon.size * 1.5);
+                        ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+                    
+                    ctx.restore();
+                }
+            }
+            
+            // 绘制黑洞（始终在屏幕中央）
+            const blackholeScreenX = canvas.width / 2;
+            const blackholeScreenY = canvas.height / 2;
+            
+            // 绘制黑洞（带旋转效果）
+            ctx.save();
+            ctx.translate(blackholeScreenX, blackholeScreenY);
+            ctx.rotate(blackhole.rotation);
+            
+            // 绘制黑洞主体
+            ctx.beginPath();
+            ctx.arc(0, 0, blackhole.radius, 0, Math.PI * 2);
+            const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, blackhole.radius);
+            gradient.addColorStop(0, '#000');
+            gradient.addColorStop(0.7, '#222');
+            gradient.addColorStop(1, '#000');
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            
+            // 绘制黑洞周围的吸积盘效果
+            ctx.beginPath();
+            ctx.arc(0, 0, blackhole.radius * 1.5, 0, Math.PI * 2);
+            const accretionGradient = ctx.createRadialGradient(0, 0, blackhole.radius, 0, 0, blackhole.radius * 1.5);
+            accretionGradient.addColorStop(0, 'rgba(139, 0, 0, 0)');
+            accretionGradient.addColorStop(0.5, 'rgba(255, 100, 0, 0.5)');
+            accretionGradient.addColorStop(1, 'rgba(255, 0, 0, 0.8)');
+            ctx.fillStyle = accretionGradient;
+            ctx.fill();
+            
+            // 绘制黑洞的旋转效果
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
+                const x1 = Math.cos(angle) * blackhole.radius * 0.8;
+                const y1 = Math.sin(angle) * blackhole.radius * 0.8;
+                const x2 = Math.cos(angle) * blackhole.radius * 1.3;
+                const y2 = Math.sin(angle) * blackhole.radius * 1.3;
+                
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.strokeStyle = `rgba(255, ${100 + i*20}, 0, 0.6)`;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+            
+            // 绘制黑洞辐射效果
+            const radiationRadius = blackhole.radius * 2;
+            const radiationGradient = ctx.createRadialGradient(0, 0, blackhole.radius, 0, 0, radiationRadius);
+            radiationGradient.addColorStop(0, 'rgba(139, 0, 0, 0.3)');
+            radiationGradient.addColorStop(0.5, 'rgba(255, 100, 0, 0.1)');
+            radiationGradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
+            ctx.fillStyle = radiationGradient;
+            ctx.beginPath();
+            ctx.arc(0, 0, radiationRadius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.restore();
+            
+            // 更新分数面板
+            document.getElementById('scorePanel').textContent = `分数: ${score} | 黑洞大小: ${Math.floor(blackhole.radius)}`;
+        }
+        
+        // 绘制草地纹理（针对可视区域）
+        function drawGrass(offsetX, offsetY) {
+            // 计算可视区域
+            const viewLeft = offsetX;
+            const viewTop = offsetY;
+            const viewRight = offsetX + canvas.width;
+            const viewBottom = offsetY + canvas.height;
+            
+            // 用浅绿和深绿混合绘制可视区域内的草地纹理
+            for (let i = 0; i < 1000; i++) {
+                // 在可视区域内生成随机草的位置
+                const x = viewLeft + (i * 123) % (viewRight - viewLeft); // 使用伪随机分布
+                const y = viewTop + (i * 456) % (viewBottom - viewTop);
+                const size = Math.random() * 2;
+                
+                // 确保只在可视区域内绘制
+                if (x >= viewLeft && x <= viewRight && y >= viewTop && y <= viewBottom) {
+                    ctx.fillStyle = Math.random() > 0.5 ? '#228B22' : '#32CD32';
+                    ctx.fillRect(x - offsetX, y - offsetY, size, size * 2);
+                }
+            }
+        }
+        
+        // 检查对象是否在可视区域内
+        function isWithinView(x, y, offsetX, offsetY) {
+            const screenX = x - offsetX;
+            const screenY = y - offsetY;
+            
+            // 检查对象是否在屏幕内或接近屏幕边缘
+            return screenX > -50 && screenX < canvas.width + 50 && 
+                   screenY > -50 && screenY < canvas.height + 50;
+        }
+        
+        // 外星人/飞船发射武器
+        function fireWeapon(obj) {
+            const angle = Math.atan2(blackhole.y - obj.y, blackhole.x - obj.x);
+            const speed = 4;
+            
+            const weaponTypes = ['antimatter', 'gravity', 'laser', 'bomb'];
+            const weaponType = weaponTypes[Math.floor(Math.random() * weaponTypes.length)];
+            
+            weapons.push({
+                x: obj.x,
+                y: obj.y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                type: weaponType,
+                size: weaponType === 'bomb' ? 8 : weaponType === 'laser' ? 15 : 6,
+                life: weaponType === 'gravity' ? 60 : 120
+            });
+        }
+        
+        // 黑洞发射武器
+        function fireBlackholeWeapon(targetX, targetY) {
+            const currentTime = Date.now();
+            if (currentTime - lastFireTime < FIRE_COOLDOWN) return;
+            
+            lastFireTime = currentTime;
+            
+            const angle = Math.atan2(targetY - blackhole.y, targetX - blackhole.x);
+            const speed = 6;
+            
+            blackholeWeapons.push({
+                x: blackhole.x,
+                y: blackhole.y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                size: 8,
+                life: 150,
+                rotation: 0
+            });
+            
+            if (fireSound) fireSound();
+        }
+        
+        // 处理键盘输入
+        const keys = {};
+        
+        window.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+        });
+        
+        window.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+        });
+        
+        // 鼠标点击发射武器
+        canvas.addEventListener('click', (e) => {
+            const offsetX = blackhole.x - canvas.width / 2;
+            const offsetY = blackhole.y - canvas.height / 2;
+            const targetX = e.clientX + offsetX;
+            const targetY = e.clientY + offsetY;
+            fireBlackholeWeapon(targetX, targetY);
+        });
+        
+        // 移动黑洞
+        function moveBlackhole() {
+            const effectiveSpeed = blackhole.speed * blackhole.speedMultiplier;
+            if (keys['arrowup'] || keys['w']) blackhole.y -= effectiveSpeed;
+            if (keys['arrowdown'] || keys['s']) blackhole.y += effectiveSpeed;
+            if (keys['arrowleft'] || keys['a']) blackhole.x -= effectiveSpeed;
+            if (keys['arrowright'] || keys['d']) blackhole.x += effectiveSpeed;
+            
+            // 无限地图边界检测 - 在地图范围内移动
+            blackhole.x = Math.max(blackhole.radius, Math.min(MAP_SIZE - blackhole.radius, blackhole.x));
+            blackhole.y = Math.max(blackhole.radius, Math.min(MAP_SIZE - blackhole.radius, blackhole.y));
+        }
+        
+        // 游戏循环
+        function gameLoop() {
+            moveBlackhole();
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // 窗口大小调整
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+        
+        // 页面加载完成后初始化音频和游戏
+        window.addEventListener('load', () => {
+            initAudio(); // 初始化音频
+            initObjects(); // 初始化游戏对象
+            gameLoop(); // 开始游戏循环
+        });
+    </script>
+</body>
+</html>
