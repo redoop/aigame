@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小蝌蚪找妈妈</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <h1>🌊 小蝌蚪找妈妈 🌊</h1>
+        <div class="info">使用方向键或WASD移动小蝌蚪</div>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="dialog" class="dialog hidden">
+            <div class="dialog-content">
+                <p id="dialogText"></p>
+                <button id="dialogBtn">继续</button>
+            </div>
+        </div>
+        <div id="victory" class="victory hidden">
+            <h2>🎉 找到妈妈了！🎉</h2>
+            <button id="restartBtn">重新开始</button>
+        </div>
+    </div>
+    <script src="game.js"></script>
+</body>
+</html>

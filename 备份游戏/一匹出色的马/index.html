@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>一匹出色的马</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: "Microsoft YaHei", sans-serif; overflow: hidden; }
+        #canvas { display: block; width: 100vw; height: 100vh; }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            background: rgba(0,0,0,0.6);
+            padding: 15px;
+            border-radius: 10px;
+            max-width: 350px;
+        }
+        #story { font-size: 16px; line-height: 1.6; margin-bottom: 10px; }
+        #hint { font-size: 14px; color: #ffeb3b; }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.6);
+            padding: 10px 20px;
+            border-radius: 10px;
+            color: white;
+            font-size: 14px;
+        }
+        #tip {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255,0,0,0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 18px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div id="ui">
+        <div id="story">春天来了，一家人去郊外散步...</div>
+        <div id="hint">使用 WASD 或方向键移动，空格键互动</div>
+    </div>
+    <div id="controls">移动: WASD/方向键 | 互动: 空格</div>
+    <div id="tip">稻草人都倒了！鸟儿飞来吃稻谷了！</div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87ceeb);
+        scene.fog = new THREE.Fog(0x87ceeb, 10, 50);
+        
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas'), antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        
+        // 光照
+        const sun = new THREE.DirectionalLight(0xffffff, 1);
+        sun.position.set(10, 20, 10);
+        sun.castShadow = true;
+        scene.add(sun);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        
+        // 地面
+        const ground = new THREE.Mesh(
+            new THREE.PlaneGeometry(100, 100),
+            new THREE.MeshLambertMaterial({ color: 0x90ee90 })
+        );
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+        
+        // 小路
+        const path = new THREE.Mesh(
+            new THREE.PlaneGeometry(2, 50),
+            new THREE.MeshLambertMaterial({ color: 0xd2b48c })
+        );
+        path.rotation.x = -Math.PI / 2;
+        path.position.y = 0.01;
+        scene.add(path);
+        
+        // 河流
+        const riverGeometry = new THREE.PlaneGeometry(4, 50, 20, 20);
+        const riverMaterial = new THREE.MeshLambertMaterial({ color: 0x4169e1 });
+        const river = new THREE.Mesh(riverGeometry, riverMaterial);
+        river.rotation.x = -Math.PI / 2;
+        river.position.set(8, 0.01, 0);
+        scene.add(river);
+        const riverVertices = riverGeometry.attributes.position;
+        
+        // 田野
+        const field = new THREE.Mesh(
+            new THREE.PlaneGeometry(15, 40),
+            new THREE.MeshLambertMaterial({ color: 0x8b7355 })
+        );
+        field.rotation.x = -Math.PI / 2;
+        field.position.set(17, 0.01, 0);
+        scene.add(field);
+        
+        // 稻谷
+        const riceStems = [];
+        for (let i = 0; i < 200; i++) {
+            const rice = new THREE.Group();
+            const stem = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.01, 0.01, 0.6),
+                new THREE.MeshLambertMaterial({ color: 0x9acd32 })
+            );
+            stem.position.y = 0.3;
+            const grain = new THREE.Mesh(
+                new THREE.SphereGeometry(0.05, 4, 4),
+                new THREE.MeshLambertMaterial({ color: 0xffd700 })
+            );
+            grain.position.y = 0.6;
+            grain.scale.y = 1.5;
+            rice.add(stem, grain);
+            rice.position.set(
+                17 + (Math.random() - 0.5) * 14,
+                0,
+                (Math.random() - 0.5) * 38
+            );
+            riceStems.push(rice);
+            scene.add(rice);
+        }
+        
+        // 稻草人
+        const scarecrows = [];
+        function createScarecrow(x, z) {
+            const scarecrow = new THREE.Group();
+            const pole = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.05, 0.05, 2.5),
+                new THREE.MeshLambertMaterial({ color: 0x8b4513 })
+            );
+            pole.position.y = 1.25;
+            const body = new THREE.Mesh(
+                new THREE.BoxGeometry(1.2, 1, 0.3),
+                new THREE.MeshLambertMaterial({ color: 0xdeb887 })
+            );
+            body.position.y = 1.8;
+            const head = new THREE.Mesh(
+                new THREE.BoxGeometry(0.5, 0.5, 0.5),
+                new THREE.MeshLambertMaterial({ color: 0xf5deb3 })
+            );
+            head.position.y = 2.6;
+            const hat = new THREE.Mesh(
+                new THREE.ConeGeometry(0.4, 0.5, 8),
+                new THREE.MeshLambertMaterial({ color: 0x654321 })
+            );
+            hat.position.y = 3;
+            scarecrow.add(pole, body, head, hat);
+            scarecrow.position.set(x, 0, z);
+            scarecrow.castShadow = true;
+            scarecrow.userData.fallen = false;
+            return scarecrow;
+        }
+        
+        scarecrows.push(createScarecrow(15, -10));
+        scarecrows.push(createScarecrow(20, 5));
+        scarecrows.push(createScarecrow(17, 15));
+        scarecrows.forEach(s => scene.add(s));
+        
+        // 桥
+        const bridge = new THREE.Group();
+        const bridgeDeck = new THREE.Mesh(
+            new THREE.BoxGeometry(5, 0.2, 3),
+            new THREE.MeshLambertMaterial({ color: 0x8b4513 })
+        );
+        bridgeDeck.position.y = 0.5;
+        const rail1 = new THREE.Mesh(
+            new THREE.BoxGeometry(5, 0.5, 0.1),
+            new THREE.MeshLambertMaterial({ color: 0x654321 })
+        );
+        rail1.position.set(0, 0.85, 1.4);
+        const rail2 = rail1.clone();
+        rail2.position.z = -1.4;
+        bridge.add(bridgeDeck, rail1, rail2);
+        bridge.position.set(8, 0, 10);
+        bridge.castShadow = true;
+        scene.add(bridge);
+        
+        // 房子（家）
+        function createHouse(x, z, color) {
+            const house = new THREE.Group();
+            const houseBody = new THREE.Mesh(
+                new THREE.BoxGeometry(4, 3, 4),
+                new THREE.MeshLambertMaterial({ color })
+            );
+            houseBody.position.y = 1.5;
+            const roof = new THREE.Mesh(
+                new THREE.ConeGeometry(3, 2, 4),
+                new THREE.MeshLambertMaterial({ color: 0x8b0000 })
+            );
+            roof.position.y = 3.5;
+            roof.rotation.y = Math.PI / 4;
+            const door = new THREE.Mesh(
+                new THREE.BoxGeometry(0.8, 1.5, 0.1),
+                new THREE.MeshLambertMaterial({ color: 0x654321 })
+            );
+            door.position.set(0, 0.75, 2.05);
+            const window1 = new THREE.Mesh(
+                new THREE.BoxGeometry(0.6, 0.6, 0.1),
+                new THREE.MeshLambertMaterial({ color: 0x87ceeb })
+            );
+            window1.position.set(-1, 2, 2.05);
+            const window2 = window1.clone();
+            window2.position.x = 1;
+            house.add(houseBody, roof, door, window1, window2);
+            house.position.set(x, 0, z);
+            house.castShadow = true;
+            return house;
+        }
+        
+        const house = createHouse(0, -25, 0xffa07a);
+        scene.add(house);
+        scene.add(createHouse(-8, -22, 0xffb6c1));
+        scene.add(createHouse(8, -28, 0xffd700));
+        scene.add(createHouse(-6, -30, 0x98fb98));
+        
+        // 小动物
+        function createHorse(x, z) {
+            const horse = new THREE.Group();
+            const body = new THREE.Mesh(
+                new THREE.BoxGeometry(0.8, 0.5, 0.4),
+                new THREE.MeshLambertMaterial({ color: 0x8b4513 })
+            );
+            body.position.y = 0.6;
+            const head = new THREE.Mesh(
+                new THREE.BoxGeometry(0.3, 0.3, 0.25),
+                new THREE.MeshLambertMaterial({ color: 0x8b4513 })
+            );
+            head.position.set(0.5, 0.7, 0);
+            const leg1 = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.4), new THREE.MeshLambertMaterial({ color: 0x654321 }));
+            leg1.position.set(0.3, 0.2, 0.15);
+            const leg2 = leg1.clone(); leg2.position.z = -0.15;
+            const leg3 = leg1.clone(); leg3.position.set(-0.3, 0.2, 0.15);
+            const leg4 = leg1.clone(); leg4.position.set(-0.3, 0.2, -0.15);
+            horse.add(body, head, leg1, leg2, leg3, leg4);
+            horse.position.set(x, 0, z);
+            return horse;
+        }
+        
+        function createCow(x, z) {
+            const cow = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.BoxGeometry(1, 0.6, 0.5), new THREE.MeshLambertMaterial({ color: 0xffffff }));
+            body.position.y = 0.7;
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.35, 0.3), new THREE.MeshLambertMaterial({ color: 0xffffff }));
+            head.position.set(0.6, 0.7, 0);
+            const spot1 = new THREE.Mesh(new THREE.CircleGeometry(0.15), new THREE.MeshLambertMaterial({ color: 0x000000 }));
+            spot1.position.set(0, 0.7, 0.26);
+            const leg1 = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.5), new THREE.MeshLambertMaterial({ color: 0xffffff }));
+            leg1.position.set(0.3, 0.25, 0.2);
+            const leg2 = leg1.clone(); leg2.position.z = -0.2;
+            const leg3 = leg1.clone(); leg3.position.set(-0.3, 0.25, 0.2);
+            const leg4 = leg1.clone(); leg4.position.set(-0.3, 0.25, -0.2);
+            cow.add(body, head, spot1, leg1, leg2, leg3, leg4);
+            cow.position.set(x, 0, z);
+            return cow;
+        }
+        
+        function createChicken(x, z) {
+            const chicken = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), new THREE.MeshLambertMaterial({ color: 0xffff00 }));
+            body.position.y = 0.25;
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 6), new THREE.MeshLambertMaterial({ color: 0xffff00 }));
+            head.position.set(0.15, 0.35, 0);
+            const beak = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.08, 4), new THREE.MeshLambertMaterial({ color: 0xffa500 }));
+            beak.rotation.z = -Math.PI / 2;
+            beak.position.set(0.22, 0.35, 0);
+            chicken.add(body, head, beak);
+            chicken.position.set(x, 0, z);
+            return chicken;
+        }
+        
+        function createPig(x, z) {
+            const pig = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.5, 0.4), new THREE.MeshLambertMaterial({ color: 0xffc0cb }));
+            body.position.y = 0.5;
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.3, 0.3), new THREE.MeshLambertMaterial({ color: 0xffc0cb }));
+            head.position.set(0.5, 0.5, 0);
+            const nose = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.1), new THREE.MeshLambertMaterial({ color: 0xff69b4 }));
+            nose.rotation.z = Math.PI / 2;
+            nose.position.set(0.7, 0.5, 0);
+            const leg1 = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.3), new THREE.MeshLambertMaterial({ color: 0xffc0cb }));
+            leg1.position.set(0.25, 0.15, 0.15);
+            const leg2 = leg1.clone(); leg2.position.z = -0.15;
+            const leg3 = leg1.clone(); leg3.position.set(-0.25, 0.15, 0.15);
+            const leg4 = leg1.clone(); leg4.position.set(-0.25, 0.15, -0.15);
+            pig.add(body, head, nose, leg1, leg2, leg3, leg4);
+            pig.position.set(x, 0, z);
+            return pig;
+        }
+        
+        function createGoose(x, z) {
+            const goose = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.SphereGeometry(0.25, 8, 8), new THREE.MeshLambertMaterial({ color: 0xffffff }));
+            body.position.y = 0.3;
+            body.scale.set(1, 0.8, 1);
+            const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.4), new THREE.MeshLambertMaterial({ color: 0xffffff }));
+            neck.position.set(0.15, 0.5, 0);
+            neck.rotation.z = -0.5;
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 6), new THREE.MeshLambertMaterial({ color: 0xffffff }));
+            head.position.set(0.35, 0.65, 0);
+            const beak = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.1, 4), new THREE.MeshLambertMaterial({ color: 0xffa500 }));
+            beak.rotation.z = -Math.PI / 2;
+            beak.position.set(0.43, 0.65, 0);
+            goose.add(body, neck, head, beak);
+            goose.position.set(x, 0, z);
+            return goose;
+        }
+        
+        function createSheep(x, z) {
+            const sheep = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.5, 0.4), new THREE.MeshLambertMaterial({ color: 0xf5f5f5 }));
+            body.position.y = 0.5;
+            const wool = new THREE.Mesh(new THREE.SphereGeometry(0.4, 8, 8), new THREE.MeshLambertMaterial({ color: 0xfffaf0 }));
+            wool.position.y = 0.6;
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.25, 0.2), new THREE.MeshLambertMaterial({ color: 0xd3d3d3 }));
+            head.position.set(0.5, 0.5, 0);
+            const leg1 = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.3), new THREE.MeshLambertMaterial({ color: 0x696969 }));
+            leg1.position.set(0.25, 0.15, 0.15);
+            const leg2 = leg1.clone(); leg2.position.z = -0.15;
+            const leg3 = leg1.clone(); leg3.position.set(-0.25, 0.15, 0.15);
+            const leg4 = leg1.clone(); leg4.position.set(-0.25, 0.15, -0.15);
+            sheep.add(body, wool, head, leg1, leg2, leg3, leg4);
+            sheep.position.set(x, 0, z);
+            return sheep;
+        }
+        
+        const animals = [];
+        animals.push(createHorse(-10, -20));
+        animals[0].userData.type = 'horse';
+        animals.push(createCow(12, -15));
+        animals[1].userData.type = 'cow';
+        animals.push(createChicken(-5, -12));
+        animals[2].userData.type = 'chicken';
+        animals.push(createChicken(-4.5, -12.5));
+        animals[3].userData.type = 'chicken';
+        animals.push(createChicken(-5.5, -11.5));
+        animals[4].userData.type = 'chicken';
+        animals.push(createPig(10, -25));
+        animals[5].userData.type = 'pig';
+        animals.push(createGoose(6, -20));
+        animals[6].userData.type = 'goose';
+        animals.push(createGoose(6.5, -19.5));
+        animals[7].userData.type = 'goose';
+        animals.push(createSheep(-12, -26));
+        animals[8].userData.type = 'sheep';
+        animals.push(createSheep(-11, -27));
+        animals[9].userData.type = 'sheep';
+        animals.forEach(a => {
+            a.castShadow = true;
+            a.userData.angle = Math.random() * Math.PI * 2;
+            a.userData.speed = 0.01 + Math.random() * 0.02;
+            a.userData.soundTimer = Math.random() * 200;
+            scene.add(a);
+        });
+        
+        // 动物声音（真实音效）
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // 使用 Web Audio API 生成简单的动物声音
+        function playAnimalSound(type) {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            const now = audioContext.currentTime;
+            gainNode.gain.setValueAtTime(0.1, now);
+            
+            switch(type) {
+                case 'horse': // 马嘶声
+                    oscillator.frequency.setValueAtTime(800, now);
+                    oscillator.frequency.exponentialRampToValueAtTime(400, now + 0.3);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    oscillator.start(now);
+                    oscillator.stop(now + 0.3);
+                    break;
+                case 'cow': // 牛叫声
+                    oscillator.frequency.setValueAtTime(200, now);
+                    oscillator.frequency.setValueAtTime(180, now + 0.5);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
+                    oscillator.start(now);
+                    oscillator.stop(now + 0.8);
+                    break;
+                case 'chicken': // 鸡叫声
+                    oscillator.frequency.setValueAtTime(1200, now);
+                    oscillator.frequency.setValueAtTime(1000, now + 0.05);
+                    oscillator.frequency.setValueAtTime(1200, now + 0.1);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                    oscillator.start(now);
+                    oscillator.stop(now + 0.15);
+                    break;
+                case 'pig': // 猪叫声
+                    oscillator.frequency.setValueAtTime(300, now);
+                    oscillator.frequency.setValueAtTime(250, now + 0.2);
+                    oscillator.frequency.setValueAtTime(300, now + 0.4);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                    oscillator.start(now);
+                    oscillator.stop(now + 0.5);
+                    break;
+                case 'goose': // 鹅叫声
+                    oscillator.frequency.setValueAtTime(600, now);
+                    oscillator.frequency.setValueAtTime(500, now + 0.3);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                    oscillator.start(now);
+                    oscillator.stop(now + 0.4);
+                    break;
+                case 'sheep': // 羊叫声
+                    oscillator.frequency.setValueAtTime(400, now);
+                    oscillator.frequency.setValueAtTime(350, now + 0.3);
+                    oscillator.frequency.setValueAtTime(400, now + 0.6);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.7);
+                    oscillator.start(now);
+                    oscillator.stop(now + 0.7);
+                    break;
+            }
+        }
+        
+        // 花园（种花场景）
+        const garden = new THREE.Mesh(
+            new THREE.PlaneGeometry(6, 6),
+            new THREE.MeshLambertMaterial({ color: 0x8b4513 })
+        );
+        garden.rotation.x = -Math.PI / 2;
+        garden.position.set(-3, 0.02, -18);
+        scene.add(garden);
+        
+        // 花园里的花
+        const gardenFlowers = [];
+        for (let i = 0; i < 20; i++) {
+            const flower = new THREE.Group();
+            const stem = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.02, 0.02, 0.4),
+                new THREE.MeshLambertMaterial({ color: 0x228b22 })
+            );
+            stem.position.y = 0.2;
+            const petal = new THREE.Mesh(
+                new THREE.SphereGeometry(0.12, 6, 6),
+                new THREE.MeshLambertMaterial({ color: [0xff1493, 0xff69b4, 0xff00ff, 0xffa500, 0xffff00][i % 5] })
+            );
+            petal.position.y = 0.4;
+            petal.scale.y = 0.5;
+            flower.add(stem, petal);
+            flower.position.set(
+                -3 + (Math.random() - 0.5) * 5,
+                0,
+                -18 + (Math.random() - 0.5) * 5
+            );
+            gardenFlowers.push(flower);
+            scene.add(flower);
+        }
+        
+        // 花园栅栏
+        for (let i = 0; i < 12; i++) {
+            const fence = new THREE.Mesh(
+                new THREE.BoxGeometry(0.1, 0.5, 0.05),
+                new THREE.MeshLambertMaterial({ color: 0xffffff })
+            );
+            const angle = (i / 12) * Math.PI * 2;
+            fence.position.set(
+                -3 + Math.cos(angle) * 3.5,
+                0.25,
+                -18 + Math.sin(angle) * 3.5
+            );
+            fence.rotation.y = angle;
+            scene.add(fence);
+        }
+        
+        // 创建角色
+        function createPerson(color, size) {
+            const group = new THREE.Group();
+            const body = new THREE.Mesh(
+                new THREE.CylinderGeometry(size * 0.3, size * 0.3, size, 8),
+                new THREE.MeshLambertMaterial({ color })
+            );
+            body.castShadow = true;
+            const head = new THREE.Mesh(
+                new THREE.SphereGeometry(size * 0.4, 8, 8),
+                new THREE.MeshLambertMaterial({ color: 0xffdbac })
+            );
+            head.position.y = size * 0.8;
+            head.castShadow = true;
+            group.add(body, head);
+            return group;
+        }
+        
+        const girl = createPerson(0xff69b4, 0.6);
+        girl.position.set(0, 0.3, 0);
+        scene.add(girl);
+        
+        const dad = createPerson(0x4169e1, 1);
+        dad.position.set(-2, 0.5, -3);
+        scene.add(dad);
+        
+        const mom = createPerson(0xff6347, 0.9);
+        mom.position.set(-1, 0.45, -3);
+        scene.add(mom);
+        
+        const brother = createPerson(0x32cd32, 0.7);
+        brother.position.set(-3, 0.35, -3);
+        scene.add(brother);
+        
+        // 鲜花
+        const flowers = [];
+        for (let i = 0; i < 30; i++) {
+            const flower = new THREE.Group();
+            const stem = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.02, 0.02, 0.3),
+                new THREE.MeshLambertMaterial({ color: 0x228b22 })
+            );
+            stem.position.y = 0.15;
+            const petal = new THREE.Mesh(
+                new THREE.SphereGeometry(0.15, 6, 6),
+                new THREE.MeshLambertMaterial({ color: [0xff69b4, 0xffff00, 0xff0000, 0xffa500][i % 4] })
+            );
+            petal.position.y = 0.3;
+            petal.scale.y = 0.5;
+            flower.add(stem, petal);
+            const x = (Math.random() - 0.5) * 4 + (i % 2 === 0 ? -3 : 3);
+            flower.position.set(x, 0, (Math.random() - 0.5) * 40);
+            flowers.push(flower);
+            scene.add(flower);
+        }
+        
+        // 树木
+        for (let i = 0; i < 15; i++) {
+            const tree = new THREE.Group();
+            const trunk = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.2, 0.3, 2),
+                new THREE.MeshLambertMaterial({ color: 0x8b4513 })
+            );
+            const leaves = new THREE.Mesh(
+                new THREE.SphereGeometry(1.5, 8, 8),
+                new THREE.MeshLambertMaterial({ color: 0x228b22 })
+            );
+            leaves.position.y = 2;
+            tree.add(trunk, leaves);
+            tree.position.set(
+                (Math.random() - 0.5) * 40,
+                1,
+                (Math.random() - 0.5) * 40
+            );
+            tree.castShadow = true;
+            scene.add(tree);
+        }
+        
+        // 柳树（关键道具）
+        const willow = new THREE.Group();
+        const willowTrunk = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.3, 0.4, 3),
+            new THREE.MeshLambertMaterial({ color: 0x8b4513 })
+        );
+        const willowLeaves = new THREE.Mesh(
+            new THREE.ConeGeometry(2, 4, 8),
+            new THREE.MeshLambertMaterial({ color: 0x9acd32 })
+        );
+        willowLeaves.position.y = 3;
+        willow.add(willowTrunk, willowLeaves);
+        willow.position.set(5, 1.5, 15);
+        scene.add(willow);
+        
+        // 鸟
+        const birds = [];
+        function createBird(x, y, z) {
+            const bird = new THREE.Group();
+            const body = new THREE.Mesh(
+                new THREE.SphereGeometry(0.15, 6, 6),
+                new THREE.MeshLambertMaterial({ color: 0x8b4513 })
+            );
+            const wing1 = new THREE.Mesh(
+                new THREE.BoxGeometry(0.3, 0.05, 0.2),
+                new THREE.MeshLambertMaterial({ color: 0x654321 })
+            );
+            wing1.position.set(-0.15, 0, 0);
+            const wing2 = wing1.clone();
+            wing2.position.x = 0.15;
+            bird.add(body, wing1, wing2);
+            bird.position.set(x, y, z);
+            bird.userData.wing1 = wing1;
+            bird.userData.wing2 = wing2;
+            bird.userData.active = false;
+            bird.visible = false;
+            return bird;
+        }
+        
+        for (let i = 0; i < 5; i++) {
+            const bird = createBird(30, 10, Math.random() * 20 - 10);
+            birds.push(bird);
+            scene.add(bird);
+        }
+        
+        // 柳条（马）
+        let willowStick = null;
+        
+        // 相机跟随
+        camera.position.set(0, 5, 8);
+        camera.lookAt(girl.position);
+        
+        // 语音合成
+        const synth = window.speechSynthesis;
+        function speak(text) {
+            synth.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'zh-CN';
+            utterance.rate = 0.9;
+            utterance.pitch = 1.1;
+            synth.speak(utterance);
+        }
+        
+        // 游戏状态
+        let stage = 0;
+        const stories = [
+            "春天来了，一家人去郊外散步...",
+            "路边开满了鲜花，河水哗哗地流着...",
+            "大家停下来采花，妹妹也摘了几朵...",
+            "妹妹走累了，想让爸爸抱...",
+            "爸爸说：\"你已经长大了，要自己走。\"",
+            "爸爸从柳树上折下一根柳条...",
+            "这是一匹出色的马，你骑着它回家吧！",
+            "妹妹骑着马，高兴地跑在前面！",
+            "到家了！妹妹骑着出色的马回到了家！"
+        ];
+        
+        speak(stories[0]);
+        
+        const keys = {};
+        document.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+        document.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+        
+        let distance = 0;
+        let time = 0;
+        let allScarecrowsFallen = false;
+        let pickingFlowers = false;
+        let pickedFlowers = [];
+        let wantHug = false;
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.016;
+            
+            // 家人跟随移动
+            dad.position.x += (girl.position.x - 2 - dad.position.x) * 0.03;
+            dad.position.z += (girl.position.z - 3 - dad.position.z) * 0.03;
+            dad.rotation.y = Math.sin(time * 2) * 0.1;
+            
+            mom.position.x += (girl.position.x - 1 - mom.position.x) * 0.035;
+            mom.position.z += (girl.position.z - 3 - mom.position.z) * 0.035;
+            mom.rotation.y = Math.sin(time * 2.2) * 0.1;
+            
+            brother.position.x += (girl.position.x - 3 - brother.position.x) * 0.028;
+            brother.position.z += (girl.position.z - 3 - brother.position.z) * 0.028;
+            brother.rotation.y = Math.sin(time * 1.8) * 0.1;
+            
+            // 鲜花摇摆
+            flowers.forEach((f, i) => {
+                f.rotation.z = Math.sin(time * 2 + i) * 0.1;
+            });
+            
+            // 花园花朵摇摆
+            gardenFlowers.forEach((f, i) => {
+                f.rotation.z = Math.sin(time * 2.5 + i * 0.5) * 0.12;
+            });
+            
+            // 稻谷摇摆
+            riceStems.forEach((r, i) => {
+                r.rotation.z = Math.sin(time * 1.5 + i * 0.1) * 0.15;
+            });
+            
+            // 河水流动
+            for (let i = 0; i < riverVertices.count; i++) {
+                const x = riverVertices.getX(i);
+                const y = riverVertices.getY(i);
+                riverVertices.setZ(i, Math.sin(x * 2 + y * 2 + time * 3) * 0.1);
+            }
+            riverVertices.needsUpdate = true;
+            
+            // 检测稻草人碰撞
+            scarecrows.forEach(s => {
+                if (!s.userData.fallen) {
+                    const dist = girl.position.distanceTo(s.position);
+                    if (dist < 1.5) {
+                        s.userData.fallen = true;
+                        s.rotation.z = Math.PI / 2;
+                    }
+                }
+            });
+            
+            // 检查是否所有稻草人都倒了
+            if (!allScarecrowsFallen && scarecrows.every(s => s.userData.fallen)) {
+                allScarecrowsFallen = true;
+                const tip = document.getElementById('tip');
+                tip.style.display = 'block';
+                setTimeout(() => tip.style.display = 'none', 3000);
+                birds.forEach((b, i) => {
+                    b.visible = true;
+                    b.userData.active = true;
+                    b.userData.targetRice = riceStems[Math.floor(Math.random() * riceStems.length)];
+                });
+            }
+            
+            // 鸟飞行和吃稻谷
+            birds.forEach(b => {
+                if (b.userData.active) {
+                    const target = b.userData.targetRice.position;
+                    b.position.x += (target.x - b.position.x) * 0.02;
+                    b.position.z += (target.z - b.position.z) * 0.02;
+                    b.position.y += (1 - b.position.y) * 0.02;
+                    b.userData.wing1.rotation.z = Math.sin(time * 10) * 0.5;
+                    b.userData.wing2.rotation.z = -Math.sin(time * 10) * 0.5;
+                }
+            });
+            
+            // 小动物随机走动
+            animals.forEach(a => {
+                a.userData.angle += (Math.random() - 0.5) * 0.1;
+                a.position.x += Math.cos(a.userData.angle) * a.userData.speed;
+                a.position.z += Math.sin(a.userData.angle) * a.userData.speed;
+                a.rotation.y = a.userData.angle;
+                
+                // 限制活动范围
+                if (Math.abs(a.position.x) > 15) a.userData.angle += Math.PI;
+                if (Math.abs(a.position.z + 20) > 15) a.userData.angle += Math.PI;
+                
+                // 偶尔发出声音
+                a.userData.soundTimer++;
+                if (a.userData.soundTimer > 300 + Math.random() * 200) {
+                    a.userData.soundTimer = 0;
+                    playAnimalSound(a.userData.type);
+                }
+            });
+            
+            // 移动控制
+            const speed = 0.1;
+            if (keys['w'] || keys['arrowup']) {
+                girl.position.z -= speed;
+                distance += speed;
+            }
+            if (keys['s'] || keys['arrowdown']) girl.position.z += speed;
+            if (keys['a'] || keys['arrowleft']) girl.position.x -= speed;
+            if (keys['d'] || keys['arrowright']) girl.position.x += speed;
+            
+            // 行走动画
+            if (keys['w'] || keys['s'] || keys['a'] || keys['d']) {
+                girl.rotation.y = Math.sin(Date.now() * 0.01) * 0.1;
+            }
+            
+            // 剧情推进
+            if (distance > 5 && stage === 0) {
+                stage = 1;
+                document.getElementById('story').textContent = stories[1];
+                speak(stories[1]);
+            }
+            if (distance > 10 && stage === 1) {
+                stage = 2;
+                pickingFlowers = true;
+                document.getElementById('story').textContent = stories[2];
+                document.getElementById('hint').textContent = "靠近路边的花按空格采花";
+                speak(stories[2]);
+                
+                // 家人采花动画
+                setTimeout(() => {
+                    const flower1 = flowers[5].clone();
+                    flower1.scale.set(0.5, 0.5, 0.5);
+                    flower1.position.set(0.3, 0.8, 0);
+                    mom.add(flower1);
+                }, 1000);
+                
+                setTimeout(() => {
+                    const flower2 = flowers[8].clone();
+                    flower2.scale.set(0.5, 0.5, 0.5);
+                    flower2.position.set(0.3, 0.7, 0);
+                    brother.add(flower2);
+                }, 2000);
+            }
+            if (distance > 15 && stage === 2 && pickedFlowers.length >= 2) {
+                stage = 3;
+                pickingFlowers = false;
+                wantHug = true;
+                document.getElementById('story').textContent = stories[3];
+                document.getElementById('hint').textContent = "走到爸爸身边按空格";
+                speak(stories[3]);
+            }
+            
+            // 互动
+            const distToWillow = girl.position.distanceTo(willow.position);
+            const distToDad = girl.position.distanceTo(dad.position);
+            
+            // 要求爸爸抱
+            if (wantHug && keys[' '] && distToDad < 2) {
+                wantHug = false;
+                stage = 4;
+                document.getElementById('story').textContent = stories[4];
+                document.getElementById('hint').textContent = "走到柳树旁边，按空格键";
+                speak(stories[4]);
+                
+                // 爸爸摇头动画
+                let shakeCount = 0;
+                const shakeInterval = setInterval(() => {
+                    dad.rotation.y = Math.sin(shakeCount * 0.5) * 0.3;
+                    shakeCount++;
+                    if (shakeCount > 10) {
+                        clearInterval(shakeInterval);
+                        dad.rotation.y = 0;
+                    }
+                }, 100);
+                
+                keys[' '] = false;
+            }
+            
+            if (keys[' '] && distToWillow < 3 && stage === 4) {
+                stage = 5;
+                document.getElementById('story').textContent = stories[5];
+                speak(stories[5]);
+                setTimeout(() => {
+                    stage = 6;
+                    document.getElementById('story').textContent = stories[6];
+                    speak(stories[6]);
+                    // 创建柳条马
+                    willowStick = new THREE.Group();
+                    
+                    // 马头
+                    const head = new THREE.Mesh(
+                        new THREE.BoxGeometry(0.15, 0.2, 0.25),
+                        new THREE.MeshLambertMaterial({ color: 0x8b7355 })
+                    );
+                    head.position.set(0, 1.2, 0);
+                    
+                    // 马耳朵
+                    const ear1 = new THREE.Mesh(
+                        new THREE.ConeGeometry(0.04, 0.1, 4),
+                        new THREE.MeshLambertMaterial({ color: 0x8b7355 })
+                    );
+                    ear1.position.set(-0.06, 1.35, 0);
+                    const ear2 = ear1.clone();
+                    ear2.position.x = 0.06;
+                    
+                    // 马鬃
+                    const mane = new THREE.Mesh(
+                        new THREE.BoxGeometry(0.08, 0.15, 0.05),
+                        new THREE.MeshLambertMaterial({ color: 0x654321 })
+                    );
+                    mane.position.set(0, 1.3, -0.1);
+                    
+                    // 柳条身体（弯曲的棍子）
+                    const stick = new THREE.Mesh(
+                        new THREE.CylinderGeometry(0.03, 0.04, 1.5),
+                        new THREE.MeshLambertMaterial({ color: 0x9acd32 })
+                    );
+                    stick.position.set(0, 0.5, 0);
+                    stick.rotation.z = 0.1;
+                    
+                    // 柳叶装饰
+                    for (let i = 0; i < 5; i++) {
+                        const leaf = new THREE.Mesh(
+                            new THREE.BoxGeometry(0.08, 0.02, 0.02),
+                            new THREE.MeshLambertMaterial({ color: 0x90ee90 })
+                        );
+                        leaf.position.set(Math.random() * 0.1 - 0.05, 0.3 + i * 0.2, 0);
+                        leaf.rotation.z = Math.random() * 0.5;
+                        willowStick.add(leaf);
+                    }
+                    
+                    willowStick.add(head, ear1, ear2, mane, stick);
+                    willowStick.rotation.z = Math.PI / 6;
+                    girl.add(willowStick);
+                    willowStick.position.set(0.3, 0, 0);
+                    document.getElementById('hint').textContent = "骑着\"马\"继续前进！";
+                }, 1500);
+                setTimeout(() => {
+                    stage = 7;
+                    document.getElementById('story').textContent = stories[7];
+                    speak(stories[7]);
+                }, 3000);
+            }
+            
+            // 采花互动
+            if (pickingFlowers && keys[' ']) {
+                flowers.forEach((f, i) => {
+                    const dist = girl.position.distanceTo(f.position);
+                    if (dist < 1 && !f.userData.picked) {
+                        f.userData.picked = true;
+                        f.visible = false;
+                        const pickedFlower = f.clone();
+                        pickedFlower.scale.set(0.5, 0.5, 0.5);
+                        pickedFlower.position.set(-0.3, 0.6, 0);
+                        pickedFlower.rotation.z = 0.5;
+                        girl.add(pickedFlower);
+                        pickedFlowers.push(pickedFlower);
+                    }
+                });
+                keys[' '] = false;
+            }
+            
+            // 有马后的动画
+            if (willowStick && (keys['w'] || keys['arrowup'])) {
+                girl.position.y = 0.3 + Math.sin(Date.now() * 0.01) * 0.1;
+                willowStick.rotation.y = Math.sin(Date.now() * 0.015) * 0.1;
+                willowStick.children[5].rotation.x = Math.sin(Date.now() * 0.02) * 0.2; // 马头摆动
+            }
+            
+            // 到家
+            const distToHome = girl.position.distanceTo(house.position);
+            if (distToHome < 5 && stage === 7) {
+                stage = 8;
+                document.getElementById('story').textContent = stories[8];
+                document.getElementById('hint').textContent = "游戏完成！刷新重新开始";
+                speak(stories[8]);
+            }
+            
+            // 相机跟随
+            camera.position.x += (girl.position.x - camera.position.x + 3) * 0.05;
+            camera.position.z += (girl.position.z + 8 - camera.position.z) * 0.05;
+            camera.lookAt(girl.position);
+            
+            renderer.render(scene, camera);
+        }
+        
+        animate();
+        
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
