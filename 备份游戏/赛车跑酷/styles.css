@@ -1,0 +1,97 @@
+body {
+    margin: 0;
+    overflow: hidden;
+}
+
+#game-container {
+    width: 100vw;
+    height: 100vh;
+}
+
+#score {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    color: white;
+    font-size: 24px;
+    font-family: Arial, sans-serif;
+}
+
+/* 虚拟控制按钮样式 */
+#mobile-controls {
+    position: fixed;
+    bottom: 20px;
+    left: 0;
+    right: 0;
+    display: none; /* 默认隐藏，在移动设备上显示 */
+    touch-action: none; /* 防止触摸事件引起页面滚动 */
+    user-select: none; /* 防止长按选择文本 */
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+
+.control-group {
+    position: absolute;
+    display: flex;
+    gap: 10px;
+    z-index: 1000; /* 确保控制按钮在最上层 */
+}
+
+.control-group.left {
+    left: 20px;
+    bottom: 20px;
+}
+
+.control-group.right {
+    right: 20px;
+    bottom: 20px;
+}
+
+.control-group.shoot {
+    left: 50%;
+    bottom: 20px;
+    transform: translateX(-50%);
+}
+
+.control-btn {
+    width: 70px; /* 增大按钮尺寸 */
+    height: 70px;
+    background-color: rgba(255, 255, 255, 0.3);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 24px;
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: pointer;
+    touch-action: manipulation; /* 优化触摸操作 */
+}
+
+.control-btn:active {
+    background-color: rgba(255, 255, 255, 0.5);
+}
+
+.control-btn#btn-shoot {
+    width: 80px;
+    height: 80px;
+    background-color: rgba(255, 100, 100, 0.3);
+    font-size: 32px;
+}
+
+.control-btn#btn-shoot:active {
+    background-color: rgba(255, 100, 100, 0.5);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    #mobile-controls {
+        display: block;
+    }
+    
+    #score {
+        font-size: 18px;
+    }
+} 

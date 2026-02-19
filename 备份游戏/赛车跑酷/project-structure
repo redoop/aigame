@@ -1,0 +1,10 @@
+racing-game/
+  ├── index.html
+  ├── styles.css
+  ├── js/
+  │   ├── game.js
+  │   ├── Car.js
+  │   └── Track.js 
+  └── sounds/
+      ├── engine.mp3
+      └── brake.mp3 
