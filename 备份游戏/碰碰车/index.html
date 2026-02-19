@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>碰碰车</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { overflow: hidden; font-family: Arial, sans-serif; }
+        #ui {
+            position: absolute; top: 15px; left: 15px;
+            color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+            font-size: 15px; z-index: 10; line-height: 1.6;
+        }
+        #info {
+            position: absolute; top: 15px; right: 15px;
+            color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+            text-align: right; font-size: 13px; z-index: 10; line-height: 1.6;
+        }
+        #score {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+            color: #FFD700; font-size: 48px; font-weight: bold;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.8);
+            z-index: 20; pointer-events: none; opacity: 0; transition: opacity 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <div>🚗 碰碰车</div>
+        <div>得分: <span id="pts">0</span></div>
+        <div>碰撞: <span id="hits">0</span> | 连击: <span id="combo">0</span>x</div>
+        <div>速度: <span id="spd">0</span></div>
+        <div>时间: <span id="timer">60</span>s</div>
+        <div id="powerup" style="color:#FFD700;display:none">⚡ 无敌冲刺!</div>
+    </div>
+    <div id="info">
+        <div>WASD / 方向键 控制</div>
+        <div>空格键 加速冲刺</div>
+        <div>吃道具获得特殊能力!</div>
+        <div>⭐加分 ⚡无敌 🧲吸引 ❄️冰冻</div>
+    </div>
+    <div id="score"></div>
+    <div id="gameover" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+        color:white;font-size:36px;font-weight:bold;text-align:center;
+        text-shadow:3px 3px 6px rgba(0,0,0,0.8);z-index:20;display:none">
+        <div style="font-size:48px;color:#FFD700">🏆 游戏结束!</div>
+        <div>最终得分: <span id="finalScore">0</span></div>
+        <div>碰撞次数: <span id="finalHits">0</span></div>
+        <div>最高连击: <span id="finalCombo">0</span>x</div>
+        <div style="margin-top:20px;font-size:20px">点击任意位置重新开始</div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // ========== 音效 ==========
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playBump() {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.15);
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+        }
+
+        function playScore() {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(1760, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+        }
+
+        // 背景音乐
+        let musicSrc = null, isMusicOn = false;
+        function startMusic() {
+            if (isMusicOn) return;
+            const dur = 8, sr = audioCtx.sampleRate;
+            const buf = audioCtx.createBuffer(2, dur * sr, sr);
+            const melody = [523,523,587,659,659,587,523,494,440,440,494,523,523,494,494,0,
+                            523,523,587,659,659,587,523,494,440,440,494,523,494,440,440,0];
+            const nd = dur / melody.length;
+            for (let ch = 0; ch < 2; ch++) {
+                const d = buf.getChannelData(ch);
+                for (let i = 0; i < d.length; i++) {
+                    const t = i / sr, nt = t % nd;
+                    const f = melody[Math.floor(t / nd) % melody.length];
+                    if (f === 0) { d[i] = 0; continue; }
+                    const env = Math.exp(-nt * 4) * 0.6 + 0.4;
+                    const beat = (Math.floor(t * 4) % 2 === 0) ? 1 : 0.7;
+                    d[i] = (Math.sin(2*Math.PI*f*t)*0.08 + Math.sin(2*Math.PI*f*0.5*t)*0.04) * env * beat;
+                }
+            }
+            musicSrc = audioCtx.createBufferSource();
+            musicSrc.buffer = buf; musicSrc.loop = true;
+            musicSrc.connect(audioCtx.destination);
+            musicSrc.start(0);
+            isMusicOn = true;
+        }
+
+        // ========== 场景 ==========
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x222233);
+
+        const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 500);
+        camera.position.set(0, 25, 30);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(innerWidth, innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        // 光照
+        scene.add(new THREE.AmbientLight(0x6666aa, 0.6));
+        const dirLight = new THREE.DirectionalLight(0xffeedd, 0.8);
+        dirLight.position.set(20, 30, 10);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
+
+        // 彩色灯光（游乐场氛围）
+        const spotColors = [0xff4444, 0x44ff44, 0x4444ff, 0xffff44];
+        spotColors.forEach((c, i) => {
+            const pl = new THREE.PointLight(c, 0.8, 30);
+            const a = (i/4)*Math.PI*2;
+            pl.position.set(Math.cos(a)*15, 8, Math.sin(a)*15);
+            scene.add(pl);
+        });
+
+        // ========== 场地 ==========
+        const ARENA_R = 18;
+
+        // 地板
+        const floor = new THREE.Mesh(
+            new THREE.CircleGeometry(ARENA_R, 64),
+            new THREE.MeshPhongMaterial({ color: 0x444455, specular: 0x222233 })
+        );
+        floor.rotation.x = -Math.PI/2;
+        floor.receiveShadow = true;
+        scene.add(floor);
+
+        // 地板花纹
+        for (let i = 0; i < 8; i++) {
+            const stripe = new THREE.Mesh(
+                new THREE.RingGeometry(ARENA_R * (i/8), ARENA_R * (i/8) + 0.15, 64),
+                new THREE.MeshBasicMaterial({ color: 0x555566 })
+            );
+            stripe.rotation.x = -Math.PI/2;
+            stripe.position.y = 0.01;
+            scene.add(stripe);
+        }
+
+        // 围栏
+        const wallGeo = new THREE.TorusGeometry(ARENA_R, 0.5, 8, 64);
+        const wall = new THREE.Mesh(wallGeo, new THREE.MeshPhongMaterial({ color: 0xcc3333 }));
+        wall.rotation.x = Math.PI/2;
+        wall.position.y = 0.5;
+        scene.add(wall);
+
+        // 围栏装饰灯
+        for (let i = 0; i < 32; i++) {
+            const a = (i/32)*Math.PI*2;
+            const bulb = new THREE.Mesh(
+                new THREE.SphereGeometry(0.2, 8, 8),
+                new THREE.MeshBasicMaterial({ color: i%2===0 ? 0xFFDD00 : 0xFF4400 })
+            );
+            bulb.position.set(Math.cos(a)*ARENA_R, 1.2, Math.sin(a)*ARENA_R);
+            scene.add(bulb);
+        }
+
+        // ========== 碰碰车 ==========
+        const CAR_COLORS = [0x00AAFF, 0xFF3333, 0x33CC33, 0xFFAA00, 0xFF66CC, 0x9966FF, 0x00CCCC, 0xFFFF33];
+
+        function createCar(color, isPlayer) {
+            const car = new THREE.Group();
+
+            // 车身
+            const bodyGeo = new THREE.BoxGeometry(1.8, 0.6, 2.4);
+            const bodyMat = new THREE.MeshPhongMaterial({ color, specular: 0x444444, shininess: 40 });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.position.y = 0.5;
+            body.castShadow = true;
+            car.add(body);
+
+            // 车顶
+            const roof = new THREE.Mesh(
+                new THREE.BoxGeometry(1.4, 0.5, 1.4),
+                new THREE.MeshPhongMaterial({ color: 0x222222 })
+            );
+            roof.position.y = 1.05;
+            roof.position.z = -0.2;
+            car.add(roof);
+
+            // 保险杠（橡胶圈）
+            const bumper = new THREE.Mesh(
+                new THREE.TorusGeometry(1.4, 0.25, 8, 16),
+                new THREE.MeshPhongMaterial({ color: 0x333333 })
+            );
+            bumper.rotation.x = Math.PI/2;
+            bumper.position.y = 0.4;
+            car.add(bumper);
+
+            // 天线（导电杆）
+            const pole = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.03, 0.03, 2.5, 6),
+                new THREE.MeshPhongMaterial({ color: 0xCCCCCC })
+            );
+            pole.position.set(0, 2.5, -0.3);
+            car.add(pole);
+
+            // 天线顶部
+            const tip = new THREE.Mesh(
+                new THREE.SphereGeometry(0.12, 8, 8),
+                new THREE.MeshBasicMaterial({ color: isPlayer ? 0x00FF00 : 0xFF0000 })
+            );
+            tip.position.set(0, 3.8, -0.3);
+            car.add(tip);
+
+            // 车灯
+            for (let s = -1; s <= 1; s += 2) {
+                const headlight = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.12, 8, 8),
+                    new THREE.MeshBasicMaterial({ color: 0xFFFFAA })
+                );
+                headlight.position.set(s * 0.6, 0.5, 1.2);
+                car.add(headlight);
+            }
+
+            // 驾驶员
+            const head = new THREE.Mesh(
+                new THREE.SphereGeometry(0.2, 10, 10),
+                new THREE.MeshPhongMaterial({ color: 0xFFDBAC })
+            );
+            head.position.set(0, 1.5, -0.1);
+            car.add(head);
+
+            return car;
+        }
+
+        // 玩家车
+        const playerCar = createCar(CAR_COLORS[0], true);
+        playerCar.position.set(0, 0, 0);
+        scene.add(playerCar);
+
+        // AI车
+        const aiCars = [];
+        const NUM_AI = 7;
+        for (let i = 0; i < NUM_AI; i++) {
+            const a = ((i+1) / (NUM_AI+1)) * Math.PI * 2;
+            const d = 8 + Math.random() * 6;
+            const car = createCar(CAR_COLORS[i+1], false);
+            car.position.set(Math.cos(a)*d, 0, Math.sin(a)*d);
+            car.rotation.y = a + Math.PI;
+            scene.add(car);
+            aiCars.push({
+                mesh: car,
+                vx: 0, vz: 0,
+                speed: 0.03 + Math.random()*0.03,
+                turnTimer: Math.random()*3,
+                targetAngle: a,
+                radius: 1.4
+            });
+        }
+
+        // ========== 道具系统 ==========
+        const POWERUP_TYPES = [
+            { type: 'star',   color: 0xFFD700, emoji: '⭐', effect: '双倍得分' },
+            { type: 'bolt',   color: 0x00FFFF, emoji: '⚡', effect: '无敌冲刺' },
+            { type: 'magnet', color: 0xFF00FF, emoji: '🧲', effect: '吸引敌人' },
+            { type: 'freeze', color: 0x88DDFF, emoji: '❄️', effect: '冰冻敌人' },
+        ];
+        const powerups = [];
+        let activePower = null, powerTimer = 0;
+        let comboCount = 0, comboTimer = 0, maxCombo = 0;
+        let gameTime = 60, gameOver = false;
+
+        function spawnPowerup() {
+            const type = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
+            const a = Math.random() * Math.PI * 2;
+            const d = 3 + Math.random() * (ARENA_R - 5);
+
+            const group = new THREE.Group();
+            // 发光球
+            const orb = new THREE.Mesh(
+                new THREE.SphereGeometry(0.5, 16, 16),
+                new THREE.MeshBasicMaterial({ color: type.color })
+            );
+            group.add(orb);
+            // 光环
+            const ring = new THREE.Mesh(
+                new THREE.TorusGeometry(0.8, 0.05, 8, 32),
+                new THREE.MeshBasicMaterial({ color: type.color, transparent: true, opacity: 0.6 })
+            );
+            group.add(ring);
+
+            group.position.set(Math.cos(a)*d, 1.5, Math.sin(a)*d);
+            scene.add(group);
+            powerups.push({ mesh: group, type: type.type, color: type.color, effect: type.effect, time: 0 });
+        }
+
+        function activatePower(type, effect) {
+            activePower = type;
+            powerTimer = 5; // 5秒持续
+            const el = document.getElementById('powerup');
+            el.textContent = '⚡ ' + effect + '!';
+            el.style.display = 'block';
+
+            if (type === 'freeze') {
+                aiCars.forEach(ai => { ai.frozen = true; });
+            }
+        }
+
+        function deactivatePower() {
+            if (activePower === 'freeze') {
+                aiCars.forEach(ai => { ai.frozen = false; });
+            }
+            activePower = null;
+            document.getElementById('powerup').style.display = 'none';
+        }
+
+        function resetGame() {
+            score = 0; hitCount = 0; comboCount = 0; maxCombo = 0;
+            gameTime = 60; gameOver = false;
+            activePower = null; powerTimer = 0;
+            document.getElementById('powerup').style.display = 'none';
+            document.getElementById('gameover').style.display = 'none';
+            playerCar.position.set(0, 0, 0);
+            player.vx = 0; player.vz = 0; player.angle = 0;
+            // 清除道具
+            powerups.forEach(p => scene.remove(p.mesh));
+            powerups.length = 0;
+            // 重置AI
+            aiCars.forEach((ai, i) => {
+                const a = ((i+1)/(NUM_AI+1))*Math.PI*2;
+                const d = 8 + Math.random()*6;
+                ai.mesh.position.set(Math.cos(a)*d, 0, Math.sin(a)*d);
+                ai.vx = 0; ai.vz = 0; ai.frozen = false;
+            });
+        }
+
+        document.addEventListener('click', () => {
+            if (gameOver) resetGame();
+        });
+
+        // ========== 火花粒子 ==========
+        const sparks = [];
+        function createSparks(x, y, z) {
+            for (let i = 0; i < 8; i++) {
+                const spark = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.08, 4, 4),
+                    new THREE.MeshBasicMaterial({ color: 0xFFDD00 })
+                );
+                spark.position.set(x, y + 0.5, z);
+                scene.add(spark);
+                sparks.push({
+                    mesh: spark,
+                    vx: (Math.random()-0.5)*0.3,
+                    vy: Math.random()*0.2 + 0.1,
+                    vz: (Math.random()-0.5)*0.3,
+                    life: 1.0
+                });
+            }
+        }
+
+        // ========== 玩家状态 ==========
+        const player = {
+            vx: 0, vz: 0,
+            angle: 0,
+            speed: 0,
+            radius: 1.4,
+            boost: false
+        };
+        let score = 0, hitCount = 0;
+        const keys = {};
+
+        document.addEventListener('keydown', e => {
+            keys[e.key.toLowerCase()] = true;
+            keys[e.code] = true;
+            startMusic();
+        });
+        document.addEventListener('keyup', e => {
+            keys[e.key.toLowerCase()] = false;
+            keys[e.code] = false;
+        });
+
+        // 鼠标视角
+        let isDragging = false, prevMouse = { x: 0, y: 0 };
+        let camAngleH = 0, camAngleV = 0.6, camDist = 30;
+
+        renderer.domElement.addEventListener('mousedown', e => {
+            isDragging = true; prevMouse = { x: e.clientX, y: e.clientY };
+            startMusic();
+        });
+        renderer.domElement.addEventListener('mousemove', e => {
+            if (!isDragging) return;
+            camAngleH -= (e.clientX - prevMouse.x) * 0.005;
+            camAngleV = Math.max(0.15, Math.min(1.3, camAngleV + (e.clientY - prevMouse.y) * 0.005));
+            prevMouse = { x: e.clientX, y: e.clientY };
+        });
+        renderer.domElement.addEventListener('mouseup', () => isDragging = false);
+        renderer.domElement.addEventListener('wheel', e => {
+            e.preventDefault();
+            camDist = Math.max(10, Math.min(50, camDist + e.deltaY * 0.03));
+        });
+
+        // ========== 碰撞检测 ==========
+        function checkCollision(ax, az, ar, bx, bz, br) {
+            const dx = ax - bx, dz = az - bz;
+            const dist = Math.sqrt(dx*dx + dz*dz);
+            return dist < ar + br;
+        }
+
+        function resolveCollision(a, aMesh, b, bMesh) {
+            const dx = aMesh.position.x - bMesh.position.x;
+            const dz = aMesh.position.z - bMesh.position.z;
+            const dist = Math.sqrt(dx*dx + dz*dz) || 0.01;
+            const nx = dx/dist, nz = dz/dist;
+
+            // 弹性碰撞
+            const relVx = a.vx - b.vx;
+            const relVz = a.vz - b.vz;
+            const relDot = relVx * nx + relVz * nz;
+
+            if (relDot > 0) return false; // 已经在分离
+
+            const bounce = 1.5;
+            a.vx -= bounce * relDot * nx * 0.5;
+            a.vz -= bounce * relDot * nz * 0.5;
+            b.vx += bounce * relDot * nx * 0.5;
+            b.vz += bounce * relDot * nz * 0.5;
+
+            // 分离
+            const overlap = (a.radius + b.radius - dist) * 0.5 + 0.1;
+            aMesh.position.x += nx * overlap;
+            aMesh.position.z += nz * overlap;
+            bMesh.position.x -= nx * overlap;
+            bMesh.position.z -= nz * overlap;
+
+            return true;
+        }
+
+        // ========== 得分显示 ==========
+        const scoreEl = document.getElementById('score');
+        function showScore(text) {
+            scoreEl.textContent = text;
+            scoreEl.style.opacity = 1;
+            setTimeout(() => scoreEl.style.opacity = 0, 800);
+        }
+
+        // ========== 动画 ==========
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // 玩家控制
+            const turnSpeed = 0.04;
+            const accel = player.boost ? 0.08 : 0.04;
+            const maxSpd = player.boost ? 0.25 : 0.15;
+            const friction = 0.97;
+
+            if (!gameOver) {
+                if (keys['w'] || keys['arrowup']) {
+                    player.vx += Math.sin(player.angle) * accel;
+                    player.vz += Math.cos(player.angle) * accel;
+                }
+                if (keys['s'] || keys['arrowdown']) {
+                    player.vx -= Math.sin(player.angle) * accel * 0.5;
+                    player.vz -= Math.cos(player.angle) * accel * 0.5;
+                }
+                if (keys['a'] || keys['arrowleft']) player.angle += turnSpeed;
+                if (keys['d'] || keys['arrowright']) player.angle -= turnSpeed;
+                player.boost = keys[' '] || keys['Space'];
+            }
+
+            // 速度限制和摩擦
+            const spd = Math.sqrt(player.vx*player.vx + player.vz*player.vz);
+            if (spd > maxSpd) {
+                player.vx *= maxSpd/spd;
+                player.vz *= maxSpd/spd;
+            }
+            player.vx *= friction;
+            player.vz *= friction;
+
+            // 移动玩家
+            playerCar.position.x += player.vx;
+            playerCar.position.z += player.vz;
+            playerCar.rotation.y = player.angle;
+
+            // 场地边界
+            const pd = Math.sqrt(playerCar.position.x**2 + playerCar.position.z**2);
+            if (pd > ARENA_R - 2) {
+                const nx = playerCar.position.x/pd, nz = playerCar.position.z/pd;
+                playerCar.position.x = nx * (ARENA_R - 2);
+                playerCar.position.z = nz * (ARENA_R - 2);
+                // 反弹
+                const dot = player.vx*nx + player.vz*nz;
+                player.vx -= 2 * dot * nx;
+                player.vz -= 2 * dot * nz;
+                player.vx *= 0.5; player.vz *= 0.5;
+                playBump();
+                createSparks(playerCar.position.x, 0, playerCar.position.z);
+            }
+
+            // AI 行为
+            aiCars.forEach(ai => {
+                if (ai.frozen) {
+                    ai.vx *= 0.9; ai.vz *= 0.9;
+                    ai.mesh.position.x += ai.vx;
+                    ai.mesh.position.z += ai.vz;
+                    // 边界
+                    const ad = Math.sqrt(ai.mesh.position.x**2 + ai.mesh.position.z**2);
+                    if (ad > ARENA_R - 2) {
+                        const nx = ai.mesh.position.x/ad, nz = ai.mesh.position.z/ad;
+                        ai.mesh.position.x = nx*(ARENA_R-2); ai.mesh.position.z = nz*(ARENA_R-2);
+                    }
+                    return;
+                }
+                ai.turnTimer -= 0.016;
+                if (ai.turnTimer <= 0) {
+                    ai.turnTimer = 1 + Math.random() * 3;
+                    // 随机选择：追玩家 或 随机方向
+                    if (Math.random() < 0.5) {
+                        ai.targetAngle = Math.atan2(
+                            playerCar.position.x - ai.mesh.position.x,
+                            playerCar.position.z - ai.mesh.position.z
+                        );
+                    } else {
+                        ai.targetAngle += (Math.random() - 0.5) * Math.PI;
+                    }
+                }
+
+                // 转向
+                let da = ai.targetAngle - ai.mesh.rotation.y;
+                while (da > Math.PI) da -= Math.PI*2;
+                while (da < -Math.PI) da += Math.PI*2;
+                ai.mesh.rotation.y += da * 0.03;
+
+                // 前进
+                ai.vx += Math.sin(ai.mesh.rotation.y) * ai.speed;
+                ai.vz += Math.cos(ai.mesh.rotation.y) * ai.speed;
+                ai.vx *= 0.96; ai.vz *= 0.96;
+
+                ai.mesh.position.x += ai.vx;
+                ai.mesh.position.z += ai.vz;
+
+                // 边界
+                const ad = Math.sqrt(ai.mesh.position.x**2 + ai.mesh.position.z**2);
+                if (ad > ARENA_R - 2) {
+                    const nx = ai.mesh.position.x/ad, nz = ai.mesh.position.z/ad;
+                    ai.mesh.position.x = nx * (ARENA_R - 2);
+                    ai.mesh.position.z = nz * (ARENA_R - 2);
+                    const dot = ai.vx*nx + ai.vz*nz;
+                    ai.vx -= 2*dot*nx; ai.vz -= 2*dot*nz;
+                    ai.vx *= 0.5; ai.vz *= 0.5;
+                    ai.targetAngle = Math.atan2(-nx, -nz);
+                }
+            });
+
+            // 碰撞检测：玩家 vs AI
+            aiCars.forEach(ai => {
+                if (checkCollision(
+                    playerCar.position.x, playerCar.position.z, player.radius,
+                    ai.mesh.position.x, ai.mesh.position.z, ai.radius
+                )) {
+                    // 无敌模式：撞飞AI
+                    if (activePower === 'bolt') {
+                        const dx = ai.mesh.position.x - playerCar.position.x;
+                        const dz = ai.mesh.position.z - playerCar.position.z;
+                        const d = Math.sqrt(dx*dx+dz*dz) || 0.01;
+                        ai.vx = (dx/d) * 0.5;
+                        ai.vz = (dz/d) * 0.5;
+                        const overlap = player.radius + ai.radius - d + 0.1;
+                        ai.mesh.position.x += (dx/d)*overlap;
+                        ai.mesh.position.z += (dz/d)*overlap;
+                    } else {
+                        resolveCollision(player, playerCar, ai, ai.mesh);
+                    }
+
+                    playBump();
+                    hitCount++;
+
+                    // 连击系统
+                    if (comboTimer > 0) {
+                        comboCount++;
+                    } else {
+                        comboCount = 1;
+                    }
+                    comboTimer = 2; // 2秒内再撞算连击
+                    maxCombo = Math.max(maxCombo, comboCount);
+
+                    // 计分：速度 × 连击 × 道具加成
+                    const impactSpeed = Math.sqrt(player.vx**2 + player.vz**2);
+                    let pts = Math.round(impactSpeed * 100) * comboCount;
+                    if (activePower === 'star') pts *= 2;
+                    score += pts;
+
+                    const comboText = comboCount > 1 ? ` ${comboCount}x连击!` : '';
+                    showScore('+' + pts + comboText);
+                    playScore();
+                    createSparks(
+                        (playerCar.position.x + ai.mesh.position.x)/2,
+                        0,
+                        (playerCar.position.z + ai.mesh.position.z)/2
+                    );
+                }
+            });
+
+            // AI vs AI 碰撞
+            for (let i = 0; i < aiCars.length; i++) {
+                for (let j = i+1; j < aiCars.length; j++) {
+                    const a = aiCars[i], b = aiCars[j];
+                    if (checkCollision(
+                        a.mesh.position.x, a.mesh.position.z, a.radius,
+                        b.mesh.position.x, b.mesh.position.z, b.radius
+                    )) {
+                        resolveCollision(a, a.mesh, b, b.mesh);
+                    }
+                }
+            }
+
+            // 更新火花
+            for (let i = sparks.length - 1; i >= 0; i--) {
+                const s = sparks[i];
+                s.mesh.position.x += s.vx;
+                s.mesh.position.y += s.vy;
+                s.mesh.position.z += s.vz;
+                s.vy -= 0.01;
+                s.life -= 0.03;
+                s.mesh.material.opacity = s.life;
+                s.mesh.material.transparent = true;
+                if (s.life <= 0) {
+                    scene.remove(s.mesh);
+                    sparks.splice(i, 1);
+                }
+            }
+
+            // 装饰灯闪烁
+            const time = Date.now() * 0.003;
+            scene.children.forEach(child => {
+                if (child.geometry && child.geometry.type === 'SphereGeometry' &&
+                    child.geometry.parameters.radius === 0.2 && child.material.isMeshBasicMaterial) {
+                    const flash = Math.sin(time + child.position.x * 2) > 0;
+                    if (child.material.color.getHex() === 0xFFDD00 || child.material.color.getHex() === 0xFF4400) {
+                        child.material.color.setHex(flash ? 0xFFDD00 : 0xFF4400);
+                    }
+                }
+            });
+
+            // 加速特效（车尾闪光）
+            if (player.boost && spd > 0.05) {
+                playerCar.children[playerCar.children.length-1].material.color.setHex(
+                    Math.random() > 0.5 ? 0x00FF00 : 0x00FF88
+                );
+            }
+
+            // UI
+            document.getElementById('pts').textContent = score;
+            document.getElementById('hits').textContent = hitCount;
+            document.getElementById('spd').textContent = (spd * 100).toFixed(0);
+            document.getElementById('combo').textContent = comboCount;
+            document.getElementById('timer').textContent = Math.ceil(gameTime);
+
+            // 倒计时
+            if (!gameOver) {
+                gameTime -= 0.016;
+                if (gameTime <= 0) {
+                    gameTime = 0;
+                    gameOver = true;
+                    document.getElementById('gameover').style.display = 'block';
+                    document.getElementById('finalScore').textContent = score;
+                    document.getElementById('finalHits').textContent = hitCount;
+                    document.getElementById('finalCombo').textContent = maxCombo;
+                }
+            }
+
+            // 连击衰减
+            comboTimer -= 0.016;
+            if (comboTimer <= 0 && comboCount > 0) {
+                comboCount = 0;
+            }
+
+            // 道具计时
+            if (activePower) {
+                powerTimer -= 0.016;
+                if (powerTimer <= 0) deactivatePower();
+            }
+
+            // 生成道具（每5秒）
+            if (!gameOver && Math.random() < 0.003 && powerups.length < 3) {
+                spawnPowerup();
+            }
+
+            // 道具动画和拾取
+            for (let i = powerups.length - 1; i >= 0; i--) {
+                const p = powerups[i];
+                p.time += 0.016;
+                p.mesh.position.y = 1.5 + Math.sin(p.time * 3) * 0.3;
+                p.mesh.rotation.y += 0.03;
+                p.mesh.children[1].rotation.x += 0.02;
+
+                // 玩家拾取
+                const dx = playerCar.position.x - p.mesh.position.x;
+                const dz = playerCar.position.z - p.mesh.position.z;
+                if (Math.sqrt(dx*dx + dz*dz) < 2) {
+                    activatePower(p.type, p.effect);
+                    playScore();
+                    scene.remove(p.mesh);
+                    powerups.splice(i, 1);
+                }
+            }
+
+            // 磁铁效果：吸引AI
+            if (activePower === 'magnet') {
+                aiCars.forEach(ai => {
+                    const dx = playerCar.position.x - ai.mesh.position.x;
+                    const dz = playerCar.position.z - ai.mesh.position.z;
+                    const dist = Math.sqrt(dx*dx + dz*dz);
+                    if (dist < 12 && dist > 2) {
+                        ai.vx += (dx/dist) * 0.02;
+                        ai.vz += (dz/dist) * 0.02;
+                    }
+                });
+            }
+
+            // 相机跟随
+            const target = playerCar.position.clone();
+            target.y = 2;
+            camera.position.set(
+                target.x + Math.sin(camAngleH) * Math.cos(camAngleV) * camDist,
+                target.y + Math.sin(camAngleV) * camDist,
+                target.z + Math.cos(camAngleH) * Math.cos(camAngleV) * camDist
+            );
+            camera.lookAt(target);
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = innerWidth / innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(innerWidth, innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>

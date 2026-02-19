@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大摆锤</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { overflow: hidden; font-family: Arial, sans-serif; }
+        #ui {
+            position: absolute; top: 20px; left: 20px;
+            color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+            font-size: 16px; z-index: 10;
+        }
+        #controls {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 12px; z-index: 10;
+        }
+        button {
+            padding: 10px 22px; font-size: 15px;
+            background: rgba(255,255,255,0.9); border: 2px solid #333;
+            border-radius: 8px; cursor: pointer; transition: all 0.2s;
+        }
+        button:hover { background: white; transform: scale(1.05); }
+        #info {
+            position: absolute; top: 20px; right: 20px;
+            color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+            text-align: right; font-size: 14px; z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <div>🔔 大摆锤</div>
+        <div>摆动角度: <span id="angle">0</span>°</div>
+        <div>转速: <span id="spin">0</span></div>
+        <div>最高点: <span id="maxH">0</span>m</div>
+    </div>
+    <div id="info">
+        <div>鼠标拖动旋转视角</div>
+        <div>滚轮缩放</div>
+    </div>
+    <div id="controls">
+        <button id="startBtn">启动</button>
+        <button id="powerUpBtn">加力</button>
+        <button id="powerDownBtn">减力</button>
+        <button id="spinUpBtn">加转</button>
+        <button id="viewBtn">切换视角</button>
+        <button id="musicBtn">🔇 音乐</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // ========== 音乐 ==========
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let musicSrc = null, isMusicOn = false;
+        function makeMusic() {
+            if (musicSrc) musicSrc.stop();
+            const dur = 8, sr = audioCtx.sampleRate;
+            const buf = audioCtx.createBuffer(2, dur * sr, sr);
+            const melody = [330,330,392,440,392,330,294,262,294,330,392,440,523,494,440,392];
+            const bass =   [165,165,196,220,196,165,147,131,147,165,196,220,262,247,220,196];
+            const nd = dur / melody.length;
+            for (let ch = 0; ch < 2; ch++) {
+                const d = buf.getChannelData(ch);
+                for (let i = 0; i < d.length; i++) {
+                    const t = i / sr, nt = t % nd;
+                    const idx = Math.floor(t / nd) % melody.length;
+                    const env = Math.exp(-nt * 3) * 0.6 + 0.4;
+                    const beat = (Math.floor(t * 3) % 3 === 0) ? 1.0 : 0.6;
+                    const m = Math.sin(2*Math.PI*melody[idx]*t) * 0.10;
+                    const h = Math.sin(2*Math.PI*melody[idx]*2*t) * 0.02 * Math.exp(-nt*8);
+                    const b = Math.sin(2*Math.PI*bass[idx]*t) * 0.06;
+                    d[i] = (m + h + b) * env * beat;
+                }
+            }
+            musicSrc = audioCtx.createBufferSource();
+            musicSrc.buffer = buf; musicSrc.loop = true;
+            musicSrc.connect(audioCtx.destination);
+            return musicSrc;
+        }
+        function toggleMusic() {
+            if (isMusicOn) { if(musicSrc) musicSrc.stop(); document.getElementById('musicBtn').textContent='🔇 音乐'; }
+            else { makeMusic().start(0); document.getElementById('musicBtn').textContent='🔊 音乐'; }
+            isMusicOn = !isMusicOn;
+        }
+
+        // ========== 场景 ==========
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x5588cc);
+        scene.fog = new THREE.FogExp2(0x5588cc, 0.006);
+
+        const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 500);
+        camera.position.set(30, 20, 35);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(innerWidth, innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        // 光照
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        const dirLight = new THREE.DirectionalLight(0xffeedd, 1.0);
+        dirLight.position.set(30, 50, 20);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.set(2048, 2048);
+        scene.add(dirLight);
+
+        // 太阳
+        const sunGroup = new THREE.Group();
+        sunGroup.add(new THREE.Mesh(
+            new THREE.SphereGeometry(4, 32, 32),
+            new THREE.MeshBasicMaterial({ color: 0xFFDD00 })
+        ));
+        sunGroup.add(new THREE.Mesh(
+            new THREE.SphereGeometry(6, 32, 32),
+            new THREE.MeshBasicMaterial({ color: 0xFFAA00, transparent: true, opacity: 0.2 })
+        ));
+        sunGroup.position.set(60, 70, -50);
+        scene.add(sunGroup);
+
+        // 地面
+        const ground = new THREE.Mesh(
+            new THREE.PlaneGeometry(200, 200),
+            new THREE.MeshLambertMaterial({ color: 0x4a8a3a })
+        );
+        ground.rotation.x = -Math.PI/2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // 地面装饰圆形平台
+        const platform = new THREE.Mesh(
+            new THREE.CylinderGeometry(12, 13, 0.5, 32),
+            new THREE.MeshPhongMaterial({ color: 0x888888 })
+        );
+        platform.position.y = 0.25;
+        platform.receiveShadow = true;
+        scene.add(platform);
+
+        // 树木
+        function createTree(x, z) {
+            const g = new THREE.Group();
+            g.add(new THREE.Mesh(
+                new THREE.CylinderGeometry(0.2, 0.3, 3, 8),
+                new THREE.MeshPhongMaterial({ color: 0x8B4513 })
+            ));
+            g.children[0].position.y = 1.5;
+            for (let i = 0; i < 3; i++) {
+                const leaf = new THREE.Mesh(
+                    new THREE.SphereGeometry(1.5 - i*0.3, 8, 8),
+                    new THREE.MeshPhongMaterial({ color: 0x228B22 })
+                );
+                leaf.position.y = 3.5 + i*0.8;
+                leaf.castShadow = true;
+                g.add(leaf);
+            }
+            g.position.set(x, 0, z);
+            const s = 0.6 + Math.random()*0.6;
+            g.scale.set(s, s, s);
+            return g;
+        }
+        for (let i = 0; i < 30; i++) {
+            const a = Math.random()*Math.PI*2, d = 20 + Math.random()*40;
+            scene.add(createTree(Math.cos(a)*d, Math.sin(a)*d));
+        }
+
+        // ========== 大摆锤结构 ==========
+        const ARM_LENGTH = 15;     // 摆臂长度
+        const DISK_RADIUS = 4;     // 圆盘半径
+        const PIVOT_HEIGHT = 18;   // 支点高度
+
+        // 支架（A字形）
+        const frameMat = new THREE.MeshPhongMaterial({ color: 0xDD4444, specular: 0x333333 });
+
+        function createLeg(xOff, zOff, angle) {
+            const leg = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.3, 0.5, PIVOT_HEIGHT + 2, 12),
+                frameMat
+            );
+            leg.position.set(xOff, (PIVOT_HEIGHT + 2)/2, zOff);
+            leg.rotation.z = angle;
+            leg.castShadow = true;
+            return leg;
+        }
+        scene.add(createLeg(-4, -3, 0.15));
+        scene.add(createLeg(4, -3, -0.15));
+        scene.add(createLeg(-4, 3, 0.15));
+        scene.add(createLeg(4, 3, -0.15));
+
+        // 顶部横梁
+        const beam = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.4, 0.4, 8, 12),
+            frameMat
+        );
+        beam.rotation.x = Math.PI/2;
+        beam.position.y = PIVOT_HEIGHT;
+        beam.castShadow = true;
+        scene.add(beam);
+
+        // ========== 摆动组 ==========
+        const pendulumGroup = new THREE.Group();
+        pendulumGroup.position.y = PIVOT_HEIGHT;
+        scene.add(pendulumGroup);
+
+        // 摆臂
+        const arm = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.2, 0.2, ARM_LENGTH, 12),
+            new THREE.MeshPhongMaterial({ color: 0x666666, specular: 0x999999 })
+        );
+        arm.position.y = -ARM_LENGTH/2;
+        arm.castShadow = true;
+        pendulumGroup.add(arm);
+
+        // 圆盘座舱（可旋转）
+        const diskGroup = new THREE.Group();
+        diskGroup.position.y = -ARM_LENGTH;
+        pendulumGroup.add(diskGroup);
+
+        // 圆盘主体
+        const diskBody = new THREE.Mesh(
+            new THREE.CylinderGeometry(DISK_RADIUS, DISK_RADIUS, 0.8, 32),
+            new THREE.MeshPhongMaterial({ color: 0x2266AA, specular: 0x4488CC, shininess: 60 })
+        );
+        diskBody.castShadow = true;
+        diskGroup.add(diskBody);
+
+        // 圆盘边缘装饰灯
+        for (let i = 0; i < 16; i++) {
+            const a = (i/16) * Math.PI * 2;
+            const light = new THREE.Mesh(
+                new THREE.SphereGeometry(0.15, 8, 8),
+                new THREE.MeshBasicMaterial({ color: i%2 === 0 ? 0xFF0000 : 0xFFFF00 })
+            );
+            light.position.set(Math.cos(a)*DISK_RADIUS, 0.5, Math.sin(a)*DISK_RADIUS);
+            diskGroup.add(light);
+        }
+
+        // 座位和乘客
+        const NUM_SEATS = 12;
+        for (let i = 0; i < NUM_SEATS; i++) {
+            const a = (i/NUM_SEATS) * Math.PI * 2;
+            const seatGroup = new THREE.Group();
+            seatGroup.position.set(
+                Math.cos(a) * (DISK_RADIUS - 0.5),
+                0.4,
+                Math.sin(a) * (DISK_RADIUS - 0.5)
+            );
+            seatGroup.lookAt(0, 0.4, 0);
+
+            // 座椅
+            const seat = new THREE.Mesh(
+                new THREE.BoxGeometry(0.8, 1.2, 0.6),
+                new THREE.MeshPhongMaterial({ color: 0x333333 })
+            );
+            seat.position.y = 0.6;
+            seatGroup.add(seat);
+
+            // 安全护栏
+            const bar = new THREE.Mesh(
+                new THREE.TorusGeometry(0.3, 0.04, 8, 12, Math.PI),
+                new THREE.MeshPhongMaterial({ color: 0xFFCC00 })
+            );
+            bar.position.set(0, 1.0, 0.3);
+            bar.rotation.x = Math.PI/2;
+            seatGroup.add(bar);
+
+            // 乘客
+            const head = new THREE.Mesh(
+                new THREE.SphereGeometry(0.15, 10, 10),
+                new THREE.MeshPhongMaterial({ color: 0xFFDBAC })
+            );
+            head.position.y = 1.6;
+            seatGroup.add(head);
+
+            const body = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.1, 0.13, 0.5, 8),
+                new THREE.MeshPhongMaterial({ color: [0x4169E1,0xFF69B4,0x32CD32,0xFF8C00,0x9370DB,0xFF6347][i%6] })
+            );
+            body.position.y = 1.2;
+            seatGroup.add(body);
+
+            diskGroup.add(seatGroup);
+        }
+
+        // ========== 物理状态 ==========
+        let isRunning = false;
+        let swingAngle = 0;          // 当前摆动角度（弧度）
+        let swingVelocity = 0;       // 角速度
+        let maxSwingAngle = 0;       // 目标最大摆幅
+        let diskSpinSpeed = 0;       // 圆盘自转速度
+        let diskSpinAngle = 0;       // 圆盘自转角度
+        let isFirstPerson = false;
+
+        const GRAVITY = 9.8;
+        const DAMPING = 0.998;       // 阻尼
+
+        // ========== 控制 ==========
+        document.getElementById('musicBtn').addEventListener('click', toggleMusic);
+
+        document.getElementById('startBtn').addEventListener('click', () => {
+            isRunning = !isRunning;
+            document.getElementById('startBtn').textContent = isRunning ? '停止' : '启动';
+            if (isRunning) {
+                maxSwingAngle = Math.PI * 0.3; // 初始摆幅54度
+                swingVelocity = 0.02;
+                if (!isMusicOn) toggleMusic();
+            } else {
+                maxSwingAngle = 0;
+            }
+        });
+
+        document.getElementById('powerUpBtn').addEventListener('click', () => {
+            if (isRunning) maxSwingAngle = Math.min(maxSwingAngle + Math.PI*0.1, Math.PI * 0.95);
+        });
+
+        document.getElementById('powerDownBtn').addEventListener('click', () => {
+            maxSwingAngle = Math.max(maxSwingAngle - Math.PI*0.1, 0);
+        });
+
+        document.getElementById('spinUpBtn').addEventListener('click', () => {
+            if (isRunning) diskSpinSpeed = Math.min(diskSpinSpeed + 0.01, 0.08);
+        });
+
+        document.getElementById('viewBtn').addEventListener('click', () => {
+            isFirstPerson = !isFirstPerson;
+            document.getElementById('viewBtn').textContent = isFirstPerson ? '第三人称' : '切换视角';
+        });
+
+        // 鼠标视角
+        let isDragging = false, prevMouse = { x: 0, y: 0 };
+        let camAngleH = 0.8, camAngleV = 0.4, camDist = 45;
+        const lookTarget = new THREE.Vector3(0, 10, 0);
+
+        renderer.domElement.addEventListener('mousedown', e => {
+            isDragging = true; prevMouse = { x: e.clientX, y: e.clientY };
+        });
+        renderer.domElement.addEventListener('mousemove', e => {
+            if (!isDragging || isFirstPerson) return;
+            camAngleH -= (e.clientX - prevMouse.x) * 0.005;
+            camAngleV = Math.max(0.05, Math.min(1.4, camAngleV + (e.clientY - prevMouse.y) * 0.005));
+            prevMouse = { x: e.clientX, y: e.clientY };
+        });
+        renderer.domElement.addEventListener('mouseup', () => isDragging = false);
+        renderer.domElement.addEventListener('wheel', e => {
+            e.preventDefault();
+            if (!isFirstPerson) camDist = Math.max(15, Math.min(80, camDist + e.deltaY * 0.05));
+        });
+
+        // ========== 动画 ==========
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (isRunning) {
+                // 真实钟摆物理：角加速度 = -(g/L) * sin(θ)
+                const angularAccel = -(GRAVITY / ARM_LENGTH) * Math.sin(swingAngle);
+                swingVelocity += angularAccel * 0.016; // dt ≈ 16ms
+
+                // 驱动力：向目标摆幅靠近
+                if (Math.abs(swingAngle) < maxSwingAngle * 0.95) {
+                    swingVelocity += Math.sign(swingVelocity || 0.01) * 0.002;
+                }
+
+                swingVelocity *= DAMPING;
+                swingAngle += swingVelocity;
+
+                // 圆盘自转
+                diskSpinAngle += diskSpinSpeed;
+            } else {
+                // 停止时缓慢减速
+                const angularAccel = -(GRAVITY / ARM_LENGTH) * Math.sin(swingAngle);
+                swingVelocity += angularAccel * 0.016;
+                swingVelocity *= 0.99;
+                swingAngle += swingVelocity;
+                diskSpinSpeed *= 0.995;
+                diskSpinAngle += diskSpinSpeed;
+            }
+
+            // 应用摆动
+            pendulumGroup.rotation.z = swingAngle;
+
+            // 应用圆盘自转
+            diskGroup.rotation.y = diskSpinAngle;
+
+            // 装饰灯闪烁
+            const time = Date.now() * 0.005;
+            diskGroup.children.forEach((child, i) => {
+                if (i > 0 && i <= 16 && child.material && child.material.color) {
+                    const flash = Math.sin(time + i) > 0;
+                    child.material.color.setHex(flash ? (i%2===0 ? 0xFF0000 : 0xFFFF00) : (i%2===0 ? 0xFFFF00 : 0xFF0000));
+                }
+            });
+
+            // 太阳旋转
+            sunGroup.rotation.z = Date.now() * 0.0001;
+
+            // UI
+            const angleDeg = Math.abs(swingAngle * 180 / Math.PI).toFixed(1);
+            const highestY = PIVOT_HEIGHT - ARM_LENGTH * Math.cos(Math.abs(swingAngle));
+            document.getElementById('angle').textContent = angleDeg;
+            document.getElementById('spin').textContent = (diskSpinSpeed * 100).toFixed(1);
+            document.getElementById('maxH').textContent = highestY.toFixed(1);
+
+            // 相机
+            if (isFirstPerson) {
+                // 第一人称：坐在圆盘边缘
+                const seatAngle = diskSpinAngle;
+                const seatLocal = new THREE.Vector3(
+                    Math.cos(seatAngle) * (DISK_RADIUS - 0.5),
+                    1.8,
+                    Math.sin(seatAngle) * (DISK_RADIUS - 0.5)
+                );
+                const worldPos = diskGroup.localToWorld(seatLocal);
+                camera.position.copy(worldPos);
+                camera.lookAt(0, PIVOT_HEIGHT, 0);
+            } else {
+                const target = new THREE.Vector3(0, PIVOT_HEIGHT * 0.5, 0);
+                lookTarget.lerp(target, 0.05);
+                camera.position.set(
+                    lookTarget.x + Math.sin(camAngleH) * Math.cos(camAngleV) * camDist,
+                    lookTarget.y + Math.sin(camAngleV) * camDist,
+                    lookTarget.z + Math.cos(camAngleH) * Math.cos(camAngleV) * camDist
+                );
+                camera.lookAt(lookTarget);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = innerWidth / innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(innerWidth, innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>
