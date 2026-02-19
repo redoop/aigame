@@ -625,6 +625,8 @@
             "春天来了，一家人去郊外散步...",
             "路边开满了鲜花，河水哗哗地流着...",
             "大家停下来采花，妹妹也摘了几朵...",
+            "妹妹看到了一头牛，想骑一骑...",
+            "妹妹骑上了牛，慢慢地走了一段路...",
             "妹妹走累了，想让爸爸抱...",
             "爸爸说：\"你已经长大了，要自己走。\"",
             "爸爸从柳树上折下一根柳条...",
@@ -645,6 +647,8 @@
         let pickingFlowers = false;
         let pickedFlowers = [];
         let wantHug = false;
+        let ridingCow = false;
+        let cowRideDistance = 0;
         
         function animate() {
             requestAnimationFrame(animate);
@@ -787,23 +791,78 @@
             if (distance > 15 && stage === 2 && pickedFlowers.length >= 2) {
                 stage = 3;
                 pickingFlowers = false;
-                wantHug = true;
                 document.getElementById('story').textContent = stories[3];
-                document.getElementById('hint').textContent = "走到爸爸身边按空格";
+                document.getElementById('hint').textContent = "走到牛身边按空格骑牛";
                 speak(stories[3]);
+            }
+            if (stage === 4 && cowRideDistance > 8) {
+                stage = 5;
+                ridingCow = false;
+                girl.position.y = 0.3;
+                girl.parent.remove(girl);
+                scene.add(girl);
+                wantHug = true;
+                document.getElementById('story').textContent = stories[5];
+                document.getElementById('hint').textContent = "走到爸爸身边按空格";
+                speak(stories[5]);
             }
             
             // 互动
             const distToWillow = girl.position.distanceTo(willow.position);
             const distToDad = girl.position.distanceTo(dad.position);
+            const distToCow = girl.position.distanceTo(animals[1].position);
+            
+            // 骑牛互动
+            if (stage === 3 && keys[' '] && distToCow < 2) {
+                stage = 4;
+                ridingCow = true;
+                document.getElementById('story').textContent = stories[4];
+                document.getElementById('hint').textContent = "继续前进，体验骑牛";
+                speak(stories[4]);
+                
+                // 妹妹骑到牛背上
+                scene.remove(girl);
+                animals[1].add(girl);
+                girl.position.set(0, 1.2, 0);
+                girl.rotation.y = 0;
+                
+                keys[' '] = false;
+            }
+            
+            // 骑牛时的移动
+            if (ridingCow) {
+                const cowSpeed = 0.05;
+                if (keys['w'] || keys['arrowup']) {
+                    animals[1].position.z -= cowSpeed;
+                    cowRideDistance += cowSpeed;
+                    animals[1].rotation.y = 0;
+                }
+                if (keys['s'] || keys['arrowdown']) {
+                    animals[1].position.z += cowSpeed;
+                    animals[1].rotation.y = Math.PI;
+                }
+                if (keys['a'] || keys['arrowleft']) {
+                    animals[1].position.x -= cowSpeed;
+                    animals[1].rotation.y = Math.PI / 2;
+                }
+                if (keys['d'] || keys['arrowright']) {
+                    animals[1].position.x += cowSpeed;
+                    animals[1].rotation.y = -Math.PI / 2;
+                }
+                
+                // 骑牛时的上下摆动
+                if (keys['w'] || keys['s'] || keys['a'] || keys['d']) {
+                    girl.position.y = 1.2 + Math.sin(Date.now() * 0.005) * 0.08;
+                }
+            }
             
             // 要求爸爸抱
             if (wantHug && keys[' '] && distToDad < 2) {
                 wantHug = false;
-                stage = 4;
-                document.getElementById('story').textContent = stories[4];
+                stage = 6;
+                document.getElementById('story').textContent = stories[6];
                 document.getElementById('hint').textContent = "走到柳树旁边，按空格键";
-                speak(stories[4]);
+                speak(stories[6]);
                 
                 // 爸爸摇头动画
                 let shakeCount = 0;
@@ -819,14 +878,14 @@
                 keys[' '] = false;
             }
             
-            if (keys[' '] && distToWillow < 3 && stage === 4) {
-                stage = 5;
-                document.getElementById('story').textContent = stories[5];
-                speak(stories[5]);
+            if (keys[' '] && distToWillow < 3 && stage === 6) {
+                stage = 7;
+                document.getElementById('story').textContent = stories[7];
+                speak(stories[7]);
                 setTimeout(() => {
-                    stage = 6;
-                    document.getElementById('story').textContent = stories[6];
-                    speak(stories[6]);
+                    stage = 8;
+                    document.getElementById('story').textContent = stories[8];
+                    speak(stories[8]);
                     // 创建柳条马
                     willowStick = new THREE.Group();
                     
@@ -879,9 +938,9 @@
                     document.getElementById('hint').textContent = "骑着\"马\"继续前进！";
                 }, 1500);
                 setTimeout(() => {
-                    stage = 7;
-                    document.getElementById('story').textContent = stories[7];
-                    speak(stories[7]);
+                    stage = 9;
+                    document.getElementById('story').textContent = stories[9];
+                    speak(stories[9]);
                 }, 3000);
             }
             
@@ -912,17 +971,25 @@
             
             // 到家
             const distToHome = girl.position.distanceTo(house.position);
-            if (distToHome < 5 && stage === 7) {
-                stage = 8;
-                document.getElementById('story').textContent = stories[8];
+            if (distToHome < 5 && stage === 9) {
+                stage = 10;
+                document.getElementById('story').textContent = stories[10];
                 document.getElementById('hint').textContent = "游戏完成！刷新重新开始";
-                speak(stories[8]);
+                speak(stories[10]);
             }
             
             // 相机跟随
-            camera.position.x += (girl.position.x - camera.position.x + 3) * 0.05;
-            camera.position.z += (girl.position.z + 8 - camera.position.z) * 0.05;
-            camera.lookAt(girl.position);
+            if (ridingCow) {
+                // 骑牛时跟随牛
+                camera.position.x += (animals[1].position.x - camera.position.x + 3) * 0.05;
+                camera.position.z += (animals[1].position.z + 8 - camera.position.z) * 0.05;
+                camera.lookAt(animals[1].position);
+            } else {
+                // 正常跟随女孩
+                camera.position.x += (girl.position.x - camera.position.x + 3) * 0.05;
+                camera.position.z += (girl.position.z + 8 - camera.position.z) * 0.05;
+                camera.lookAt(girl.position);
+            }
             
             renderer.render(scene, camera);
         }

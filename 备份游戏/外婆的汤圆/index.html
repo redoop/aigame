@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>外婆的汤圆</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'KaiTi', '楷体', serif;
+            overflow: hidden;
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+        }
+        #canvas { display: block; }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #8b4513;
+            font-size: 20px;
+            text-shadow: 2px 2px 4px rgba(255,255,255,0.8);
+            z-index: 10;
+        }
+        #instruction {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255,255,255,0.95);
+            padding: 30px 50px;
+            border-radius: 20px;
+            text-align: center;
+            font-size: 24px;
+            color: #8b4513;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            z-index: 100;
+        }
+        #instruction button {
+            margin-top: 20px;
+            padding: 15px 40px;
+            font-size: 20px;
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-family: 'KaiTi', '楷体', serif;
+        }
+        #instruction button:hover { background: #ff5252; }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <div id="stage">阶段：观看外婆包汤圆</div>
+        <div id="count">汤圆数量：0</div>
+    </div>
+    <div id="instruction">
+        <h2>外婆的汤圆</h2>
+        <p>一起来包金华咸味汤圆吧！</p>
+        <button onclick="startGame()">开始</button>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        let scene, camera, renderer, grandma, player, tangyuans = [], fallingTangyuans = [];
+        let stage = 0; // 0:接汤圆 1:观看 2:一起包 3:一起吃
+        let tangyuanCount = 0, caughtCount = 0;
+        let audioContext, bgMusic, basket;
+
+        function startGame() {
+            document.getElementById('instruction').style.display = 'none';
+            initAudio();
+            init();
+            animate();
+        }
+
+        function initAudio() {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            playBGMusic();
+        }
+
+        function playBGMusic() {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            oscillator.frequency.value = 440;
+            gainNode.gain.value = 0.05;
+            oscillator.start();
+            
+            // 简单旋律循环
+            let notes = [523, 587, 659, 698, 784, 698, 659, 587];
+            let index = 0;
+            setInterval(() => {
+                oscillator.frequency.value = notes[index % notes.length];
+                index++;
+            }, 500);
+        }
+
+        function playSound(freq, duration = 0.1) {
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            osc.connect(gain);
+            gain.connect(audioContext.destination);
+            osc.frequency.value = freq;
+            gain.gain.value = 0.3;
+            osc.start();
+            gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+            osc.stop(audioContext.currentTime + duration);
+        }
+
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'zh-CN';
+                utterance.rate = 0.9;
+                speechSynthesis.speak(utterance);
+            }
+        }
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xfff8dc);
+            scene.fog = new THREE.Fog(0xfff8dc, 10, 50);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 5, 10);
+            camera.lookAt(0, 0, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.body.appendChild(renderer.domElement);
+
+            // 灯光
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(5, 10, 5);
+            dirLight.castShadow = true;
+            scene.add(dirLight);
+
+            // 地板
+            const floorGeo = new THREE.PlaneGeometry(30, 30);
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0xd2691e });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            // 桌子
+            const tableGeo = new THREE.BoxGeometry(6, 0.2, 4);
+            const tableMat = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
+            const table = new THREE.Mesh(tableGeo, tableMat);
+            table.position.y = 1.5;
+            table.castShadow = true;
+            scene.add(table);
+
+            // 外婆
+            grandma = createPerson(0xff69b4, -2, 0, 0);
+            scene.add(grandma);
+
+            // 玩家
+            player = createPerson(0x4169e1, 2, 0, 0);
+            scene.add(player);
+
+            // 篮子
+            basket = createBasket(0, 0.5, 3);
+            scene.add(basket);
+
+            // 开始第一阶段
+            setTimeout(() => {
+                speak("快用篮子接住掉下来的汤圆");
+                startStage0();
+            }, 1000);
+
+            window.addEventListener('click', onMouseClick);
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function createPerson(color, x, y, z) {
+            const group = new THREE.Group();
+            
+            // 身体
+            const bodyGeo = new THREE.CylinderGeometry(0.5, 0.6, 1.5, 8);
+            const bodyMat = new THREE.MeshStandardMaterial({ color: color });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.position.y = 2.5;
+            body.castShadow = true;
+            group.add(body);
+
+            // 头
+            const headGeo = new THREE.SphereGeometry(0.4, 16, 16);
+            const headMat = new THREE.MeshStandardMaterial({ color: 0xffdbac });
+            const head = new THREE.Mesh(headGeo, headMat);
+            head.position.y = 3.5;
+            head.castShadow = true;
+            group.add(head);
+
+            // 手臂
+            const armGeo = new THREE.CylinderGeometry(0.15, 0.15, 1, 8);
+            const armMat = new THREE.MeshStandardMaterial({ color: 0xffdbac });
+            const leftArm = new THREE.Mesh(armGeo, armMat);
+            leftArm.position.set(-0.6, 2.5, 0);
+            leftArm.rotation.z = Math.PI / 4;
+            group.add(leftArm);
+            const rightArm = new THREE.Mesh(armGeo, armMat);
+            rightArm.position.set(0.6, 2.5, 0);
+            rightArm.rotation.z = -Math.PI / 4;
+            group.add(rightArm);
+
+            group.position.set(x, y, z);
+            return group;
+        }
+
+        function createTangyuan(x, y, z) {
+            const group = new THREE.Group();
+            
+            // 汤圆外皮
+            const tangyuanGeo = new THREE.SphereGeometry(0.3, 16, 16);
+            const tangyuanMat = new THREE.MeshStandardMaterial({ 
+                color: 0xffffff,
+                roughness: 0.3,
+                metalness: 0.1
+            });
+            const tangyuan = new THREE.Mesh(tangyuanGeo, tangyuanMat);
+            tangyuan.castShadow = true;
+            group.add(tangyuan);
+
+            // 馅料（稍微露出一点）
+            const fillingGeo = new THREE.SphereGeometry(0.1, 8, 8);
+            const fillingMat = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
+            const filling = new THREE.Mesh(fillingGeo, fillingMat);
+            filling.position.y = 0.2;
+            group.add(filling);
+
+            group.position.set(x, y, z);
+            return group;
+        }
+
+        function createBasket(x, y, z) {
+            const group = new THREE.Group();
+            const geo = new THREE.CylinderGeometry(0.8, 0.6, 0.5, 8, 1, true);
+            const mat = new THREE.MeshStandardMaterial({ color: 0xd2691e, side: THREE.DoubleSide });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.castShadow = true;
+            group.add(mesh);
+            group.position.set(x, y, z);
+            return group;
+        }
+
+        function startStage0() {
+            stage = 0;
+            document.getElementById('stage').textContent = '阶段：接住汤圆（移动鼠标）';
+            
+            // 每秒掉落一个汤圆
+            const dropInterval = setInterval(() => {
+                if (caughtCount >= 5) {
+                    clearInterval(dropInterval);
+                    setTimeout(() => {
+                        speak("接得真好，外婆开始包汤圆啦");
+                        startStage1();
+                    }, 1000);
+                    return;
+                }
+                
+                const x = (Math.random() - 0.5) * 8;
+                const tangyuan = createTangyuan(x, 8, 0);
+                tangyuan.userData.falling = true;
+                tangyuan.userData.speed = 0.05;
+                scene.add(tangyuan);
+                fallingTangyuans.push(tangyuan);
+            }, 1000);
+        }
+
+        function startStage1() {
+            stage = 1;
+            document.getElementById('stage').textContent = '阶段：观看外婆包汤圆';
+            basket.visible = false;
+            
+            let count = 0;
+            const interval = setInterval(() => {
+                if (count >= 3) {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        speak("来，一起包汤圆吧");
+                        startStage1();
+                    }, 2000);
+                    return;
+                }
+                
+                // 外婆包汤圆动画
+                const tangyuan = createTangyuan(-2, 1.8, 0);
+                scene.add(tangyuan);
+                tangyuans.push(tangyuan);
+                tangyuanCount++;
+                document.getElementById('count').textContent = '汤圆数量：' + tangyuanCount;
+                
+                playSound(800);
+                
+                // 移动到桌上
+                const targetX = -2 + count * 1;
+                const targetZ = -1;
+                animateTangyuan(tangyuan, targetX, 1.7, targetZ);
+                
+                count++;
+            }, 2000);
+        }
+
+        function startStage1() {
+            stage = 1;
+            document.getElementById('stage').textContent = '阶段：观看外婆包汤圆';
+            basket.visible = false;
+            
+            let count = 0;
+            const interval = setInterval(() => {
+                if (count >= 3) {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        speak("来，一起包汤圆吧");
+                        startStage2();
+                    }, 2000);
+                    return;
+                }
+                
+                // 外婆包汤圆动画
+                const tangyuan = createTangyuan(-2, 1.8, 0);
+                scene.add(tangyuan);
+                tangyuans.push(tangyuan);
+                tangyuanCount++;
+                document.getElementById('count').textContent = '汤圆数量：' + tangyuanCount;
+                
+                playSound(800);
+                
+                // 移动到桌上
+                const targetX = -2 + count * 1;
+                const targetZ = -1;
+                animateTangyuan(tangyuan, targetX, 1.7, targetZ);
+                
+                count++;
+            }, 2000);
+        }
+
+        function startStage2() {
+            stage = 2;
+            document.getElementById('stage').textContent = '阶段：一起包汤圆（点击桌面）';
+            speak("点击桌面来包汤圆");
+        }
+
+        function startStage3() {
+            stage = 3;
+            document.getElementById('stage').textContent = '阶段：一起吃汤圆';
+            speak("汤圆包好了，一起吃吧");
+            
+            // 移动人物到一起
+            animatePerson(grandma, -1, 0, 2);
+            animatePerson(player, 1, 0, 2);
+            
+            // 汤圆变熟（颜色变化）
+            setTimeout(() => {
+                tangyuans.forEach(t => {
+                    t.children[0].material.color.setHex(0xfff8dc);
+                });
+                speak("真好吃");
+                
+                // 吃汤圆动画
+                let index = 0;
+                const eatInterval = setInterval(() => {
+                    if (index >= tangyuans.length) {
+                        clearInterval(eatInterval);
+                        setTimeout(() => {
+                            speak("谢谢外婆，汤圆真好吃");
+                            showEndScreen();
+                        }, 2000);
+                        return;
+                    }
+                    
+                    const t = tangyuans[index];
+                    playSound(600 + Math.random() * 200);
+                    
+                    // 缩小消失
+                    const shrink = setInterval(() => {
+                        t.scale.multiplyScalar(0.9);
+                        if (t.scale.x < 0.1) {
+                            clearInterval(shrink);
+                            scene.remove(t);
+                        }
+                    }, 50);
+                    
+                    index++;
+                }, 1000);
+            }, 2000);
+        }
+
+        function animateTangyuan(tangyuan, targetX, targetY, targetZ) {
+            const startX = tangyuan.position.x;
+            const startY = tangyuan.position.y;
+            const startZ = tangyuan.position.z;
+            let progress = 0;
+            
+            const interval = setInterval(() => {
+                progress += 0.05;
+                if (progress >= 1) {
+                    clearInterval(interval);
+                    tangyuan.position.set(targetX, targetY, targetZ);
+                    return;
+                }
+                
+                tangyuan.position.x = startX + (targetX - startX) * progress;
+                tangyuan.position.y = startY + (targetY - startY) * progress + Math.sin(progress * Math.PI) * 0.5;
+                tangyuan.position.z = startZ + (targetZ - startZ) * progress;
+                tangyuan.rotation.y += 0.2;
+            }, 30);
+        }
+
+        function animatePerson(person, targetX, targetY, targetZ) {
+            const startX = person.position.x;
+            const startZ = person.position.z;
+            let progress = 0;
+            
+            const interval = setInterval(() => {
+                progress += 0.02;
+                if (progress >= 1) {
+                    clearInterval(interval);
+                    person.position.set(targetX, targetY, targetZ);
+                    return;
+                }
+                
+                person.position.x = startX + (targetX - startX) * progress;
+                person.position.z = startZ + (targetZ - startZ) * progress;
+            }, 30);
+        }
+
+        function onMouseClick(event) {
+            if (stage !== 2) return;
+            
+            const tangyuan = createTangyuan(2, 1.8, 0);
+            scene.add(tangyuan);
+            tangyuans.push(tangyuan);
+            tangyuanCount++;
+            document.getElementById('count').textContent = '汤圆数量：' + tangyuanCount;
+            
+            playSound(850);
+            
+            const col = Math.floor((tangyuanCount - 4) / 3);
+            const row = (tangyuanCount - 4) % 3;
+            const targetX = -1 + row * 1;
+            const targetZ = 0 + col * 0.8;
+            animateTangyuan(tangyuan, targetX, 1.7, targetZ);
+            
+            if (tangyuanCount >= 10) {
+                setTimeout(() => {
+                    speak("包了好多汤圆呢");
+                    startStage3();
+                }, 1000);
+            }
+        }
+
+        function onMouseMove(event) {
+            if (stage !== 0 || !basket) return;
+            
+            const x = (event.clientX / window.innerWidth) * 10 - 5;
+            basket.position.x = Math.max(-4, Math.min(4, x));
+        }
+
+        function showEndScreen() {
+            const endDiv = document.createElement('div');
+            endDiv.id = 'instruction';
+            endDiv.innerHTML = `
+                <h2>游戏结束</h2>
+                <p>和外婆一起包汤圆，真温暖！</p>
+                <p>共包了 ${tangyuanCount} 个金华咸味汤圆</p>
+                <button onclick="location.reload()">再玩一次</button>
+            `;
+            document.body.appendChild(endDiv);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // 汤圆轻微浮动
+            tangyuans.forEach((t, i) => {
+                if (t.parent) {
+                    t.position.y += Math.sin(Date.now() * 0.001 + i) * 0.001;
+                }
+            });
+            
+            // 掉落汤圆
+            fallingTangyuans.forEach((t, i) => {
+                if (!t.userData.falling) return;
+                
+                t.position.y -= t.userData.speed;
+                t.userData.speed += 0.002; // 加速
+                t.rotation.y += 0.1;
+                
+                // 检测碰撞
+                if (basket && Math.abs(t.position.x - basket.position.x) < 1 && 
+                    t.position.y < basket.position.y + 0.5 && t.position.y > basket.position.y) {
+                    t.userData.falling = false;
+                    scene.remove(t);
+                    caughtCount++;
+                    tangyuanCount++;
+                    document.getElementById('count').textContent = '汤圆数量：' + tangyuanCount;
+                    playSound(900);
+                    fallingTangyuans.splice(i, 1);
+                } else if (t.position.y < 0) {
+                    scene.remove(t);
+                    fallingTangyuans.splice(i, 1);
+                }
+            });
+            
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+    </script>
+</body>
+</html>
