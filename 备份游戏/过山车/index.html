@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>过山车 - 马形 & 龙形</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { overflow: hidden; font-family: Arial, sans-serif; background: #000; }
+        #ui {
+            position: absolute; top: 20px; left: 20px;
+            color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            font-size: 16px; z-index: 10;
+        }
+        #controls {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 12px; z-index: 10;
+        }
+        button {
+            padding: 10px 20px; font-size: 15px;
+            background: rgba(255,255,255,0.9); border: 2px solid #333;
+            border-radius: 8px; cursor: pointer; transition: all 0.2s;
+        }
+        button:hover { background: white; transform: scale(1.05); }
+        button.active { background: #FFD700; border-color: #DAA520; }
+        #info {
+            position: absolute; top: 20px; right: 20px;
+            color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            text-align: right; font-size: 14px; z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <div>🎢 过山车</div>
+        <div>速度: <span id="speed">0</span> km/h</div>
+        <div>轨道: <span id="trackName">马形</span></div>
+    </div>
+    <div id="info">
+        <div>鼠标拖动旋转视角</div>
+        <div>滚轮缩放</div>
+        <div>1/2 切换视角</div>
+    </div>
+    <div id="controls">
+        <button id="startBtn">启动</button>
+        <button id="horseBtn" class="active">🐴 马形轨道</button>
+        <button id="dragonBtn">🐉 龙形轨道</button>
+        <button id="viewBtn">切换视角</button>
+        <button id="musicBtn">🔇 音乐</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // ========== 音乐 ==========
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let musicSrc = null, isMusicOn = false;
+        function makeMusic() {
+            if (musicSrc) musicSrc.stop();
+            const dur = 8, sr = audioCtx.sampleRate;
+            const buf = audioCtx.createBuffer(2, dur * sr, sr);
+            // 欢快的游乐园波尔卡风格
+            const melody = [
+                523,523,659,523,784,740,  // C C E C G F#
+                659,523,523,659,784,880,  // E C C E G A
+                784,659,523,659,523,440,  // G E C E C A
+                494,523,587,659,587,523   // B C D E D C
+            ];
+            const bass = [
+                262,330,262,330,349,330,
+                262,330,262,330,349,392,
+                349,330,262,330,262,220,
+                247,262,294,330,294,262
+            ];
+            const nd = dur / melody.length;
+            for (let ch = 0; ch < 2; ch++) {
+                const d = buf.getChannelData(ch);
+                for (let i = 0; i < d.length; i++) {
+                    const t = i / sr;
+                    const idx = Math.floor(t / nd) % melody.length;
+                    const nt = t % nd;
+                    const env = Math.exp(-nt * 4) * 0.7 + 0.3;
+                    // 弹跳节拍
+                    const beat = (Math.floor(t * 4) % 2 === 0) ? 1.0 : 0.7;
+                    // 主旋律（明亮）
+                    const m = Math.sin(2*Math.PI*melody[idx]*t) * 0.10;
+                    // 高八度泛音
+                    const h = Math.sin(2*Math.PI*melody[idx]*2*t) * 0.03 * Math.exp(-nt*6);
+                    // 低音伴奏
+                    const b = Math.sin(2*Math.PI*bass[idx]*t) * 0.05;
+                    // 打击节拍
+                    const perc = Math.random() * 0.02 * Math.exp(-nt*20) * ((Math.floor(t*8)%2===0)?1:0);
+                    d[i] = (m + h + b + perc) * env * beat;
+                }
+            }
+            musicSrc = audioCtx.createBufferSource();
+            musicSrc.buffer = buf; musicSrc.loop = true;
+            musicSrc.connect(audioCtx.destination);
+            return musicSrc;
+        }
+        function toggleMusic() {
+            if (isMusicOn) { if(musicSrc) musicSrc.stop(); document.getElementById('musicBtn').textContent='🔇 音乐'; }
+            else { makeMusic().start(0); document.getElementById('musicBtn').textContent='🔊 音乐'; }
+            isMusicOn = !isMusicOn;
+        }
+
+        // ========== 场景 ==========
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x4a90d9);
+        scene.fog = new THREE.FogExp2(0x4a90d9, 0.005);
+
+        const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 1000);
+        camera.position.set(40, 30, 40);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(innerWidth, innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        // 光照
+        scene.add(new THREE.AmbientLight(0x404060, 0.8));
+        const dirLight = new THREE.DirectionalLight(0xffeedd, 1.0);
+        dirLight.position.set(30, 50, 30);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
+        // 彩色点光源
+        const pLight1 = new THREE.PointLight(0xff4444, 1, 60);
+        pLight1.position.set(20, 15, 0);
+        scene.add(pLight1);
+        const pLight2 = new THREE.PointLight(0x4444ff, 1, 60);
+        pLight2.position.set(-20, 15, 0);
+        scene.add(pLight2);
+
+        // 地面
+        const ground = new THREE.Mesh(
+            new THREE.PlaneGeometry(200, 200),
+            new THREE.MeshLambertMaterial({ color: 0x2d5a27 })
+        );
+        ground.rotation.x = -Math.PI/2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // 星空
+        const starGeo = new THREE.BufferGeometry();
+        const starPos = [];
+        for (let i = 0; i < 2000; i++) {
+            starPos.push((Math.random()-0.5)*400, Math.random()*150+20, (Math.random()-0.5)*400);
+        }
+        starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
+        scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.3 })));
+
+        // 太阳
+        const sunGroup = new THREE.Group();
+        const sun = new THREE.Mesh(
+            new THREE.SphereGeometry(5, 32, 32),
+            new THREE.MeshBasicMaterial({ color: 0xFFDD00 })
+        );
+        sunGroup.add(sun);
+        // 太阳光晕
+        const glowMat = new THREE.MeshBasicMaterial({ color: 0xFFAA00, transparent: true, opacity: 0.3 });
+        const glow1 = new THREE.Mesh(new THREE.SphereGeometry(7, 32, 32), glowMat);
+        sunGroup.add(glow1);
+        const glow2 = new THREE.Mesh(
+            new THREE.SphereGeometry(10, 32, 32),
+            new THREE.MeshBasicMaterial({ color: 0xFF8800, transparent: true, opacity: 0.1 })
+        );
+        sunGroup.add(glow2);
+        // 太阳光芒（射线）
+        for (let i = 0; i < 12; i++) {
+            const ray = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.1, 0.5, 8, 6),
+                new THREE.MeshBasicMaterial({ color: 0xFFCC00, transparent: true, opacity: 0.4 })
+            );
+            ray.rotation.z = (i / 12) * Math.PI * 2;
+            ray.position.set(Math.cos(ray.rotation.z) * 9, Math.sin(ray.rotation.z) * 9, 0);
+            sunGroup.add(ray);
+        }
+        sunGroup.position.set(80, 80, -60);
+        scene.add(sunGroup);
+        // 太阳光源
+        const sunLight = new THREE.PointLight(0xFFDD88, 1.5, 300);
+        sunLight.position.copy(sunGroup.position);
+        scene.add(sunLight);
+
+        // ========== 轨道生成 ==========
+        // 马形轨道：平滑的马轮廓 + 垂直翻转环
+        function generateHorseTrack() {
+            const N = 1200;
+            
+            // 基础路径
+            const basePts = [];
+            for (let i = 0; i < N; i++) {
+                const t = i / N;
+                const a = t * Math.PI * 2;
+                const x = 25 * (Math.cos(a) - 0.3*Math.cos(2*a) + 0.1*Math.cos(3*a));
+                const z = 20 * (Math.sin(a) + 0.2*Math.sin(2*a));
+                // 更陡峭的高度变化
+                const y = 2 +
+                    12 * Math.pow(Math.max(0, Math.sin(a - 0.5)), 0.6) +    // 马头急升
+                    5 * Math.pow(Math.max(0, Math.sin(3*a + 1)), 0.7) +     // 背部起伏
+                    10 * Math.pow(Math.max(0, Math.sin(a + 2.5)), 0.5) +    // 臀部陡升
+                    4 * Math.abs(Math.sin(5*a)) * (1 - Math.cos(a)*0.5);
+                basePts.push(new THREE.Vector3(x, y, z));
+            }
+            const baseCurve = new THREE.CatmullRomCurve3(basePts, true, 'catmullrom', 0.5);
+
+            return insertLoop(baseCurve, N, [{ at: 0.25, radius: 6, range: 0.06 }]);
+        }
+
+        // 龙形轨道
+        function generateDragonTrack() {
+            const N = 1200;
+
+            const basePts = [];
+            for (let i = 0; i < N; i++) {
+                const t = i / N;
+                const a = t * Math.PI * 2;
+                const r = 22 + 8 * Math.sin(3*a);
+                const x = r * Math.cos(a + Math.sin(2*a) * 0.3);
+                const z = r * Math.sin(a + Math.sin(2*a) * 0.3);
+                // 更陡峭的升降
+                const y = 2 +
+                    20 * Math.pow(0.5 + 0.5 * Math.sin(a - Math.PI/2), 1.5) +  // 陡升缓降
+                    10 * Math.sin(3*a) * Math.pow(0.5 + 0.5*Math.sin(a), 2) +
+                    6 * Math.max(0, Math.sin(5*a - 1));
+                basePts.push(new THREE.Vector3(x, y, z));
+            }
+            const baseCurve = new THREE.CatmullRomCurve3(basePts, true, 'catmullrom', 0.5);
+
+            return insertLoop(baseCurve, N, [
+                { at: 0.2, radius: 7, range: 0.055 },
+                { at: 0.65, radius: 5, range: 0.045 }
+            ]);
+        }
+
+        // 在基础曲线上插入垂直翻转环
+        function insertLoop(baseCurve, N, loops) {
+            const pts = [];
+            for (let i = 0; i < N; i++) {
+                const t = i / N;
+                let handled = false;
+
+                for (const loop of loops) {
+                    const half = loop.range / 2;
+                    if (Math.abs(t - loop.at) < half) {
+                        const lt = (t - loop.at + half) / loop.range; // 0~1
+                        const loopAngle = lt * Math.PI * 2;
+
+                        const centerPt = baseCurve.getPointAt(loop.at);
+                        const tangent = baseCurve.getTangentAt(loop.at).normalize();
+
+                        // 垂直翻转环：沿切线方向前进，沿Y轴画圆
+                        const fwd = Math.sin(loopAngle) * loop.radius;
+                        const up = (1 - Math.cos(loopAngle)) * loop.radius;
+
+                        pts.push(new THREE.Vector3(
+                            centerPt.x + tangent.x * fwd,
+                            centerPt.y + up,
+                            centerPt.z + tangent.z * fwd
+                        ));
+                        handled = true;
+                        break;
+                    }
+                }
+
+                if (!handled) pts.push(baseCurve.getPointAt(t));
+            }
+            // 更高采样 + 低张力 = 更平滑过渡
+            return new THREE.CatmullRomCurve3(pts, true, 'catmullrom', 0.2);
+        }
+
+        // ========== 轨道渲染 ==========
+        let currentCurve = null;
+        let trackMesh = null;
+        let supportGroup = new THREE.Group();
+        scene.add(supportGroup);
+
+        function buildTrack(curve) {
+            // 移除旧轨道
+            if (trackMesh) scene.remove(trackMesh);
+            while(supportGroup.children.length) supportGroup.remove(supportGroup.children[0]);
+
+            // 轨道管道
+            const tubeGeo = new THREE.TubeGeometry(curve, 500, 0.3, 8, true);
+            const tubeMat = new THREE.MeshPhongMaterial({
+                color: 0xcc3333, emissive: 0x331111, specular: 0xffffff, shininess: 80
+            });
+            trackMesh = new THREE.Mesh(tubeGeo, tubeMat);
+            trackMesh.castShadow = true;
+            scene.add(trackMesh);
+
+            // 第二根轨道（平行）
+            const points2 = [];
+            for (let i = 0; i <= 500; i++) {
+                const t = i / 500;
+                const p = curve.getPointAt(t);
+                const tangent = curve.getTangentAt(t);
+                const up = new THREE.Vector3(0, 1, 0);
+                const right = new THREE.Vector3().crossVectors(tangent, up).normalize();
+                points2.push(p.clone().add(right.multiplyScalar(1.5)));
+            }
+            const curve2 = new THREE.CatmullRomCurve3(points2, true);
+            const tube2 = new THREE.Mesh(
+                new THREE.TubeGeometry(curve2, 500, 0.3, 8, true),
+                tubeMat
+            );
+            tube2.castShadow = true;
+            scene.add(tube2);
+            // 保存第二根轨道引用以便清理
+            trackMesh.userData.rail2 = tube2;
+
+            // 支撑柱
+            const supportMat = new THREE.MeshPhongMaterial({ color: 0x666666 });
+            for (let i = 0; i < 40; i++) {
+                const t = i / 40;
+                const p = curve.getPointAt(t);
+                if (p.y > 3) {
+                    const h = p.y;
+                    const pillar = new THREE.Mesh(
+                        new THREE.CylinderGeometry(0.15, 0.2, h, 8),
+                        supportMat
+                    );
+                    pillar.position.set(p.x, h/2, p.z);
+                    pillar.castShadow = true;
+                    supportGroup.add(pillar);
+                }
+            }
+        }
+
+        // ========== 过山车车厢（4节） ==========
+        const carts = [];
+        const cartSpacing = 0.012; // 车厢间距（轨道百分比）
+        const cartColors = [0xFFD700, 0xFF4500, 0x00BFFF, 0x32CD32];
+
+        for (let c = 0; c < 4; c++) {
+            const cartGroup = new THREE.Group();
+
+            // 车身
+            const body = new THREE.Mesh(
+                new THREE.BoxGeometry(1.8, 1, 2.5),
+                new THREE.MeshPhongMaterial({ color: cartColors[c], emissive: 0x111111 })
+            );
+            body.castShadow = true;
+            cartGroup.add(body);
+
+            // 车头装饰（仅第一节）
+            if (c === 0) {
+                const nose = new THREE.Mesh(
+                    new THREE.ConeGeometry(0.7, 1.2, 8),
+                    new THREE.MeshPhongMaterial({ color: 0xFF0000 })
+                );
+                nose.rotation.x = -Math.PI / 2;
+                nose.position.z = 1.8;
+                cartGroup.add(nose);
+            }
+
+            // 乘客（每节2人）
+            for (let s = -1; s <= 1; s += 2) {
+                const head = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.18, 10, 10),
+                    new THREE.MeshPhongMaterial({ color: 0xFFDBAC })
+                );
+                head.position.set(s * 0.4, 1.0, 0);
+                const torso = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.13, 0.16, 0.5, 8),
+                    new THREE.MeshPhongMaterial({ color: [0x4169E1, 0xFF69B4, 0x32CD32, 0xFF8C00][c] })
+                );
+                torso.position.set(s * 0.4, 0.6, 0);
+                cartGroup.add(head, torso);
+            }
+
+            // 连接杆（除第一节）
+            if (c > 0) {
+                const link = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.05, 0.05, 1.5, 6),
+                    new THREE.MeshPhongMaterial({ color: 0x888888 })
+                );
+                link.rotation.x = Math.PI / 2;
+                link.position.z = -1.8;
+                cartGroup.add(link);
+            }
+
+            scene.add(cartGroup);
+            carts.push(cartGroup);
+        }
+
+        // ========== 场景装饰：树木和花草 ==========
+        function createTree(x, z) {
+            const tree = new THREE.Group();
+            // 树干
+            const trunk = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.2, 0.35, 3, 8),
+                new THREE.MeshPhongMaterial({ color: 0x8B4513 })
+            );
+            trunk.position.y = 1.5;
+            trunk.castShadow = true;
+            tree.add(trunk);
+            // 树冠（多层）
+            const leafColors = [0x228B22, 0x2E8B57, 0x006400];
+            for (let i = 0; i < 3; i++) {
+                const crown = new THREE.Mesh(
+                    new THREE.SphereGeometry(1.8 - i * 0.4, 8, 8),
+                    new THREE.MeshPhongMaterial({ color: leafColors[i] })
+                );
+                crown.position.y = 3.5 + i * 1.0;
+                crown.castShadow = true;
+                tree.add(crown);
+            }
+            tree.position.set(x, 0, z);
+            // 随机大小
+            const s = 0.6 + Math.random() * 0.8;
+            tree.scale.set(s, s, s);
+            return tree;
+        }
+
+        function createFlower(x, z) {
+            const flower = new THREE.Group();
+            // 茎
+            const stem = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.03, 0.03, 0.6, 6),
+                new THREE.MeshPhongMaterial({ color: 0x228B22 })
+            );
+            stem.position.y = 0.3;
+            flower.add(stem);
+            // 花朵
+            const petalColor = [0xFF69B4, 0xFF4500, 0xFFD700, 0xFF1493, 0x9370DB, 0xFF6347][Math.floor(Math.random()*6)];
+            const petal = new THREE.Mesh(
+                new THREE.SphereGeometry(0.15, 8, 8),
+                new THREE.MeshPhongMaterial({ color: petalColor, emissive: petalColor, emissiveIntensity: 0.2 })
+            );
+            petal.position.y = 0.65;
+            flower.add(petal);
+            flower.position.set(x, 0, z);
+            return flower;
+        }
+
+        function createBush(x, z) {
+            const bush = new THREE.Group();
+            for (let i = 0; i < 3; i++) {
+                const ball = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.4 + Math.random()*0.3, 8, 8),
+                    new THREE.MeshPhongMaterial({ color: 0x3CB371 })
+                );
+                ball.position.set((Math.random()-0.5)*0.6, 0.3, (Math.random()-0.5)*0.6);
+                ball.castShadow = true;
+                bush.add(ball);
+            }
+            bush.position.set(x, 0, z);
+            return bush;
+        }
+
+        // 种植树木（避开轨道区域）
+        for (let i = 0; i < 40; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 35 + Math.random() * 50;
+            scene.add(createTree(Math.cos(angle)*dist, Math.sin(angle)*dist));
+        }
+        // 轨道附近的树
+        for (let i = 0; i < 20; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 28 + Math.random() * 8;
+            scene.add(createTree(Math.cos(angle)*dist, Math.sin(angle)*dist));
+        }
+
+        // 种植花草
+        for (let i = 0; i < 100; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 5 + Math.random() * 80;
+            scene.add(createFlower(Math.cos(angle)*dist, Math.sin(angle)*dist));
+        }
+
+        // 灌木丛
+        for (let i = 0; i < 30; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 30 + Math.random() * 40;
+            scene.add(createBush(Math.cos(angle)*dist, Math.sin(angle)*dist));
+        }
+
+        // ========== 状态 ==========
+        let isRunning = false;
+        let progress = 0;
+        let gameSpeed = 0;
+        let maxSpeed = 0.002;
+        let currentTrack = 'horse';
+        let isFirstPerson = false;
+
+        // 初始化马形轨道
+        currentCurve = generateHorseTrack();
+        buildTrack(currentCurve);
+
+        // ========== 控制 ==========
+        document.getElementById('musicBtn').addEventListener('click', toggleMusic);
+
+        document.getElementById('startBtn').addEventListener('click', () => {
+            isRunning = !isRunning;
+            document.getElementById('startBtn').textContent = isRunning ? '停止' : '启动';
+            if (isRunning && !isMusicOn) toggleMusic();
+        });
+
+        document.getElementById('horseBtn').addEventListener('click', () => {
+            if (currentTrack === 'horse') return;
+            currentTrack = 'horse';
+            if (trackMesh && trackMesh.userData.rail2) scene.remove(trackMesh.userData.rail2);
+            currentCurve = generateHorseTrack();
+            buildTrack(currentCurve);
+            progress = 0;
+            document.getElementById('horseBtn').classList.add('active');
+            document.getElementById('dragonBtn').classList.remove('active');
+            document.getElementById('trackName').textContent = '马形';
+        });
+
+        document.getElementById('dragonBtn').addEventListener('click', () => {
+            if (currentTrack === 'dragon') return;
+            currentTrack = 'dragon';
+            if (trackMesh && trackMesh.userData.rail2) scene.remove(trackMesh.userData.rail2);
+            currentCurve = generateDragonTrack();
+            buildTrack(currentCurve);
+            progress = 0;
+            document.getElementById('dragonBtn').classList.add('active');
+            document.getElementById('horseBtn').classList.remove('active');
+            document.getElementById('trackName').textContent = '龙形';
+        });
+
+        document.getElementById('viewBtn').addEventListener('click', () => {
+            isFirstPerson = !isFirstPerson;
+            document.getElementById('viewBtn').textContent = isFirstPerson ? '第三人称' : '切换视角';
+        });
+
+        // 键盘
+        document.addEventListener('keydown', e => {
+            if (e.key === '1') { isFirstPerson = false; }
+            if (e.key === '2') { isFirstPerson = true; }
+        });
+
+        // 鼠标视角
+        let isDragging = false, prevMouse = { x: 0, y: 0 };
+        const lookTarget = new THREE.Vector3(0, 10, 0);
+        let camAngleH = Math.PI/4, camAngleV = 0.5, camDist = 50;
+
+        renderer.domElement.addEventListener('mousedown', e => {
+            isDragging = true;
+            prevMouse = { x: e.clientX, y: e.clientY };
+        });
+        renderer.domElement.addEventListener('mousemove', e => {
+            if (!isDragging || isFirstPerson) return;
+            camAngleH -= (e.clientX - prevMouse.x) * 0.005;
+            camAngleV = Math.max(0.1, Math.min(1.4, camAngleV + (e.clientY - prevMouse.y) * 0.005));
+            prevMouse = { x: e.clientX, y: e.clientY };
+        });
+        renderer.domElement.addEventListener('mouseup', () => isDragging = false);
+        renderer.domElement.addEventListener('wheel', e => {
+            e.preventDefault();
+            if (!isFirstPerson) camDist = Math.max(15, Math.min(100, camDist + e.deltaY * 0.05));
+        });
+
+        // ========== 动画 ==========
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (isRunning && currentCurve) {
+                // 根据高度变化调整速度（重力效果）
+                const p1 = currentCurve.getPointAt(progress);
+                const nextProgress = (progress + 0.001) % 1;
+                const p2 = currentCurve.getPointAt(nextProgress);
+                const heightDiff = p2.y - p1.y;
+
+                // 下坡加速，上坡减速
+                const gravity = -heightDiff * 0.0003;
+                gameSpeed = Math.max(0.0005, Math.min(0.004, gameSpeed + gravity));
+
+                progress = (progress + gameSpeed) % 1;
+
+                // 更新4节车厢位置和朝向
+                for (let c = 0; c < 4; c++) {
+                    const t = (progress - c * cartSpacing + 1) % 1;
+                    const pos = currentCurve.getPointAt(t);
+                    const lookT = (t + 0.005) % 1;
+                    const lookAt = currentCurve.getPointAt(lookT);
+
+                    carts[c].position.copy(pos);
+                    carts[c].position.y += 0.8;
+                    carts[c].lookAt(lookAt.x, lookAt.y + 0.8, lookAt.z);
+                }
+
+                // 速度显示
+                const displaySpeed = Math.round(gameSpeed * 50000);
+                document.getElementById('speed').textContent = displaySpeed;
+
+                // 第一人称相机跟随第一节车厢
+                if (isFirstPerson) {
+                    const t = progress;
+                    const pos = currentCurve.getPointAt(t);
+                    const lookT = (t + 0.01) % 1;
+                    const lookAt = currentCurve.getPointAt(lookT);
+                    camera.position.set(pos.x, pos.y + 2, pos.z);
+                    camera.lookAt(lookAt.x, lookAt.y + 1.5, lookAt.z);
+                }
+            } else {
+                gameSpeed = 0.001;
+            }
+
+            if (!isFirstPerson) {
+                // 第三人称相机
+                const target = isRunning ? carts[0].position.clone() : new THREE.Vector3(0, 10, 0);
+                lookTarget.lerp(target, 0.05);
+                camera.position.set(
+                    lookTarget.x + Math.sin(camAngleH) * Math.cos(camAngleV) * camDist,
+                    lookTarget.y + Math.sin(camAngleV) * camDist,
+                    lookTarget.z + Math.cos(camAngleH) * Math.cos(camAngleV) * camDist
+                );
+                camera.lookAt(lookTarget);
+            }
+
+            // 灯光动画
+            const time = Date.now() * 0.001;
+            pLight1.position.x = Math.sin(time * 0.5) * 25;
+            pLight2.position.z = Math.cos(time * 0.3) * 25;
+            // 太阳光芒旋转
+            sunGroup.rotation.z = time * 0.1;
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = innerWidth / innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(innerWidth, innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>
