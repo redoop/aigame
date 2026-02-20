@@ -46,6 +46,29 @@
             position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
             color: #88CCFF; font-size: 12px; z-index: 10; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
         }
+        #viewToggle {
+            position: absolute; bottom: 15px; right: 15px; z-index: 10;
+            padding: 10px 20px; background: rgba(0,0,0,0.6); color: white;
+            border: 2px solid #00AAFF; border-radius: 8px; font-size: 14px;
+            cursor: pointer; transition: all 0.2s;
+        }
+        #viewToggle:hover { background: rgba(0,170,255,0.3); transform: scale(1.05); }
+        #gunInfo {
+            position: absolute; top: 15px; right: 15px; z-index: 10;
+            color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            font-size: 15px; text-align: right; line-height: 1.8;
+        }
+        #controls {
+            position: absolute; bottom: 60px; right: 15px; z-index: 10;
+            background: rgba(0,0,0,0.7); padding: 15px; border-radius: 10px;
+            color: white; font-size: 13px;
+        }
+        .ctrlBtn {
+            display: block; width: 100%; margin: 5px 0; padding: 8px 15px;
+            background: rgba(0,170,255,0.3); color: white; border: 1px solid #00AAFF;
+            border-radius: 5px; cursor: pointer; transition: all 0.2s; font-size: 12px;
+        }
+        .ctrlBtn:hover { background: rgba(0,170,255,0.5); transform: scale(1.05); }
         #splash {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
             font-size: 48px; color: #00FF88; font-weight: bold;
@@ -78,6 +101,16 @@
     <div id="progressText">清洁进度 0%</div>
     <div id="waterBar"><div id="waterFill"></div></div>
     <div id="waterLabel">💧 水压</div>
+    <div id="viewToggle">📷 切换视角 (V)</div>
+    <div id="gunInfo">
+        <div>🔫 <span id="gunType">标准水枪</span></div>
+        <div style="font-size:12px;color:#aaa">按 G 切换</div>
+    </div>
+    <div id="controls">
+        <div style="margin-bottom:8px;font-weight:bold;text-align:center">⚙️ 控制</div>
+        <button class="ctrlBtn" onclick="switchGun()">🔫 切换水枪 (G)</button>
+        <button class="ctrlBtn" onclick="switchView()">📷 切换视角 (V)</button>
+    </div>
     <div id="splash"></div>
     <div id="levelSelect">
         <h2>🚿 冲就完事了模拟器</h2>
@@ -85,6 +118,12 @@
         <button class="lvlBtn" onclick="startLevel('car')"><span class="emoji">🚗</span>脏车</button>
         <button class="lvlBtn" onclick="startLevel('house')"><span class="emoji">🏠</span>房屋</button>
         <button class="lvlBtn" onclick="startLevel('playground')"><span class="emoji">🎡</span>游乐场</button>
+        <button class="lvlBtn" onclick="startLevel('robot')"><span class="emoji">🤖</span>机器人</button>
+        <button class="lvlBtn" onclick="startLevel('kitchen')"><span class="emoji">🍳</span>厨房</button>
+        <button class="lvlBtn" onclick="startLevel('classroom')"><span class="emoji">🏫</span>教室</button>
+        <button class="lvlBtn" onclick="startLevel('kfc')"><span class="emoji">🍗</span>肯德基</button>
+        <button class="lvlBtn" onclick="startLevel('building')"><span class="emoji">🏢</span>大厦</button>
+        <button class="lvlBtn" onclick="startLevel('mixue')"><span class="emoji">🍦</span>蜜雪冰城</button>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -114,6 +153,35 @@
                 o.connect(g); g.connect(AC.destination);
                 o.start(AC.currentTime+i*0.15); o.stop(AC.currentTime+i*0.15+0.3);
             });
+        }
+        function playRocket() {
+            const o = AC.createOscillator(), g = AC.createGain();
+            o.type = 'sawtooth'; 
+            o.frequency.setValueAtTime(100, AC.currentTime);
+            o.frequency.exponentialRampToValueAtTime(50, AC.currentTime+0.3);
+            g.gain.setValueAtTime(0.2, AC.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.01, AC.currentTime+0.3);
+            o.connect(g); g.connect(AC.destination); o.start(); o.stop(AC.currentTime+0.3);
+        }
+        function playExplosion() {
+            const buf = AC.createBuffer(1, AC.sampleRate*0.5, AC.sampleRate);
+            const d = buf.getChannelData(0);
+            for (let i = 0; i < d.length; i++) d[i] = (Math.random()-0.5)*0.3*Math.exp(-i/d.length*5);
+            const s = AC.createBufferSource(); s.buffer = buf; s.connect(AC.destination); s.start();
+        }
+        function playNuke() {
+            // 低频隆隆声
+            const o1 = AC.createOscillator(), g1 = AC.createGain();
+            o1.type = 'sine'; o1.frequency.value = 40;
+            g1.gain.setValueAtTime(0.3, AC.currentTime);
+            g1.gain.exponentialRampToValueAtTime(0.01, AC.currentTime+2);
+            o1.connect(g1); g1.connect(AC.destination); o1.start(); o1.stop(AC.currentTime+2);
+            
+            // 高频爆炸声
+            const buf = AC.createBuffer(1, AC.sampleRate*1, AC.sampleRate);
+            const d = buf.getChannelData(0);
+            for (let i = 0; i < d.length; i++) d[i] = (Math.random()-0.5)*0.5*Math.exp(-i/d.length*3);
+            const s = AC.createBufferSource(); s.buffer = buf; s.connect(AC.destination); s.start();
         }
 
         // ========== 场景 ==========
@@ -145,11 +213,13 @@
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
         const waterParticles = [];
+        const rockets = [];
+        const mushroomClouds = [];
 
-        function spawnWaterParticle(pos, normal) {
+        function spawnWaterParticle(pos, normal, color) {
             const p = new THREE.Mesh(
                 new THREE.SphereGeometry(0.03, 4, 4),
-                new THREE.MeshBasicMaterial({ color: 0x44BBFF, transparent: true, opacity: 0.8 })
+                new THREE.MeshBasicMaterial({ color: color || 0x44BBFF, transparent: true, opacity: 0.8 })
             );
             p.position.copy(pos);
             scene.add(p);
@@ -177,7 +247,7 @@
             const spot = new THREE.Mesh(
                 new THREE.PlaneGeometry(size, size),
                 new THREE.MeshBasicMaterial({
-                    color: 0x554422, transparent: true, opacity: 0.7,
+                    color: 0x332211, transparent: true, opacity: 0.95,
                     side: THREE.DoubleSide, depthWrite: false
                 })
             );
@@ -201,6 +271,7 @@
             dirtySpots.forEach(s => { if(s.mesh.parent) s.mesh.parent.remove(s.mesh); });
             dirtySpots.length = 0;
             totalSpots = 0; cleanedSpots = 0;
+            scene.background = new THREE.Color(0x88bbee);
         }
 
         function buildCar() {
@@ -251,7 +322,7 @@
                     const x = (Math.random()-0.5) * (part === body ? 3.8 : 2.3);
                     const y = (Math.random()-0.5) * (part === body ? 1 : 0.6);
                     const z = (Math.random()-0.5) * 1.8;
-                    addDirtySpot(part, new THREE.Vector3(x, y, z), 0.3 + Math.random()*0.4);
+                    addDirtySpot(part, new THREE.Vector3(x, y, z), 0.4 + Math.random()*0.5);
                 }
             });
 
@@ -291,7 +362,7 @@
                     const s = part === walls ? 
                         new THREE.Vector3((Math.random()-0.5)*4.8, (Math.random()-0.5)*2.8, (Math.random()-0.5)*3.8) :
                         new THREE.Vector3((Math.random()-0.5)*3, (Math.random()-0.5)*1.5, (Math.random()-0.5)*3);
-                    addDirtySpot(part, s, 0.3 + Math.random()*0.5);
+                    addDirtySpot(part, s, 0.4 + Math.random()*0.6);
                 }
             });
 
@@ -340,47 +411,737 @@
             [slide, swingBar, seesaw].forEach(part => {
                 for (let i = 0; i < 25; i++) {
                     const s = new THREE.Vector3((Math.random()-0.5)*1, (Math.random()-0.5)*0.5, (Math.random()-0.5)*2.5);
-                    addDirtySpot(part, s, 0.2 + Math.random()*0.3);
+                    addDirtySpot(part, s, 0.35 + Math.random()*0.4);
                 }
             });
 
             camera.position.set(0, 4, 10);
         }
 
+        function buildRobot() {
+            clearLevel();
+            const robot = new THREE.Group();
+            
+            // 头部
+            const head = new THREE.Mesh(
+                new THREE.BoxGeometry(1, 1, 1),
+                new THREE.MeshPhongMaterial({ color: 0xCCCCCC })
+            );
+            head.position.y = 2.5; head.castShadow = true;
+            robot.add(head);
+            
+            // 眼睛
+            const eye1 = new THREE.Mesh(
+                new THREE.SphereGeometry(0.15, 8, 8),
+                new THREE.MeshPhongMaterial({ color: 0x00FFFF, emissive: 0x0088AA })
+            );
+            eye1.position.set(-0.25, 2.6, 0.51);
+            robot.add(eye1);
+            const eye2 = eye1.clone();
+            eye2.position.set(0.25, 2.6, 0.51);
+            robot.add(eye2);
+            
+            // 身体
+            const body = new THREE.Mesh(
+                new THREE.BoxGeometry(1.5, 2, 1),
+                new THREE.MeshPhongMaterial({ color: 0xAAAAAA })
+            );
+            body.position.y = 1; body.castShadow = true;
+            robot.add(body);
+            
+            // 手臂
+            for (let x = -1; x <= 1; x += 2) {
+                const arm = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.15, 0.15, 1.5, 8),
+                    new THREE.MeshPhongMaterial({ color: 0x999999 })
+                );
+                arm.position.set(x * 0.9, 1, 0);
+                arm.castShadow = true;
+                robot.add(arm);
+                
+                const hand = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.2, 8, 8),
+                    new THREE.MeshPhongMaterial({ color: 0x888888 })
+                );
+                hand.position.set(x * 0.9, 0.2, 0);
+                robot.add(hand);
+            }
+            
+            // 腿
+            for (let x = -1; x <= 1; x += 2) {
+                const leg = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.2, 0.2, 1.2, 8),
+                    new THREE.MeshPhongMaterial({ color: 0x777777 })
+                );
+                leg.position.set(x * 0.4, 0.1, 0);
+                leg.castShadow = true;
+                robot.add(leg);
+            }
+            
+            // 天线
+            const antenna = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.05, 0.05, 0.5, 8),
+                new THREE.MeshPhongMaterial({ color: 0xFF6600 })
+            );
+            antenna.position.set(0, 3.25, 0);
+            robot.add(antenna);
+            
+            const antennaBall = new THREE.Mesh(
+                new THREE.SphereGeometry(0.1, 8, 8),
+                new THREE.MeshPhongMaterial({ color: 0xFF0000, emissive: 0x880000 })
+            );
+            antennaBall.position.set(0, 3.55, 0);
+            robot.add(antennaBall);
+
+            scene.add(robot);
+            targetObjects.push(robot);
+
+            // 脏污
+            [head, body].forEach(part => {
+                for (let i = 0; i < 35; i++) {
+                    const size = part === head ? 0.9 : 1.4;
+                    const s = new THREE.Vector3(
+                        (Math.random()-0.5) * size,
+                        (Math.random()-0.5) * (part === head ? 0.9 : 1.8),
+                        (Math.random()-0.5) * 0.9
+                    );
+                    addDirtySpot(part, s, 0.3 + Math.random()*0.5);
+                }
+            });
+
+            camera.position.set(0, 3, 8);
+        }
+
+        function buildKitchen() {
+            clearLevel();
+            const kitchen = new THREE.Group();
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(8, 6), new THREE.MeshPhongMaterial({ color: 0xDDDDDD }));
+            floor.rotation.x = -Math.PI/2; floor.position.y = 0.01; kitchen.add(floor);
+            const cabinet = new THREE.Mesh(new THREE.BoxGeometry(4, 2, 1), new THREE.MeshPhongMaterial({ color: 0x8B4513 }));
+            cabinet.position.set(0, 1, -2.5); cabinet.castShadow = true; kitchen.add(cabinet);
+            const counter = new THREE.Mesh(new THREE.BoxGeometry(4, 0.1, 1.2), new THREE.MeshPhongMaterial({ color: 0x555555 }));
+            counter.position.set(0, 2.05, -2.4); counter.castShadow = true; kitchen.add(counter);
+            const stove = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.15, 1), new THREE.MeshPhongMaterial({ color: 0x222222 }));
+            stove.position.set(-1, 2.15, -2.4); kitchen.add(stove);
+            const sink = new THREE.Mesh(new THREE.BoxGeometry(1, 0.3, 0.8), new THREE.MeshPhongMaterial({ color: 0xCCCCCC }));
+            sink.position.set(1, 2, -2.4); kitchen.add(sink);
+            const fridge = new THREE.Mesh(new THREE.BoxGeometry(1.2, 3, 1), new THREE.MeshPhongMaterial({ color: 0xEEEEEE }));
+            fridge.position.set(2.5, 1.5, -2); fridge.castShadow = true; kitchen.add(fridge);
+            scene.add(kitchen); targetObjects.push(kitchen);
+            [cabinet, counter, stove, sink, fridge, floor].forEach(part => {
+                const count = part === floor ? 80 : 40;
+                for (let i = 0; i < count; i++) {
+                    const box = new THREE.Box3().setFromObject(part); const size = new THREE.Vector3(); box.getSize(size);
+                    addDirtySpot(part, new THREE.Vector3((Math.random()-0.5)*size.x*0.9, (Math.random()-0.5)*size.y*0.9, (Math.random()-0.5)*size.z*0.9), 0.3+Math.random()*0.5);
+                }
+            });
+            camera.position.set(0, 3, 5);
+        }
+
+        function buildClassroom() {
+            clearLevel();
+            const classroom = new THREE.Group();
+            const blackboard = new THREE.Mesh(new THREE.BoxGeometry(4, 2, 0.1), new THREE.MeshPhongMaterial({ color: 0x1A3A1A }));
+            blackboard.position.set(0, 2, -3); blackboard.castShadow = true; classroom.add(blackboard);
+            const podium = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1, 1), new THREE.MeshPhongMaterial({ color: 0xA0522D }));
+            podium.position.set(0, 0.5, -2); podium.castShadow = true; classroom.add(podium);
+            for (let row = 0; row < 3; row++) {
+                for (let col = -1; col <= 1; col += 2) {
+                    const desk = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.1, 0.8), new THREE.MeshPhongMaterial({ color: 0xDEB887 }));
+                    desk.position.set(col*1.5, 0.7, 1+row*1.5); desk.castShadow = true; classroom.add(desk);
+                }
+            }
+            scene.add(classroom); targetObjects.push(classroom);
+            [blackboard, podium].forEach(part => {
+                const count = part === blackboard ? 60 : 40;
+                for (let i = 0; i < count; i++) {
+                    const box = new THREE.Box3().setFromObject(part); const size = new THREE.Vector3(); box.getSize(size);
+                    addDirtySpot(part, new THREE.Vector3((Math.random()-0.5)*size.x*0.9, (Math.random()-0.5)*size.y*0.9, (Math.random()-0.5)*size.z*0.9), 0.25+Math.random()*0.4);
+                }
+            });
+            camera.position.set(0, 3, 6);
+        }
+
+        function buildKFC() {
+            clearLevel();
+            const kfc = new THREE.Group();
+            
+            // 地板
+            const floor = new THREE.Mesh(
+                new THREE.PlaneGeometry(10, 8),
+                new THREE.MeshPhongMaterial({ color: 0xEEDDCC })
+            );
+            floor.rotation.x = -Math.PI/2;
+            floor.position.y = 0.01;
+            kfc.add(floor);
+            
+            // 点餐柜台
+            const counter = new THREE.Mesh(
+                new THREE.BoxGeometry(5, 1.2, 1),
+                new THREE.MeshPhongMaterial({ color: 0xCC0000 })
+            );
+            counter.position.set(0, 0.6, -3);
+            counter.castShadow = true;
+            kfc.add(counter);
+            
+            // 柜台台面
+            const counterTop = new THREE.Mesh(
+                new THREE.BoxGeometry(5, 0.1, 1.2),
+                new THREE.MeshPhongMaterial({ color: 0x333333 })
+            );
+            counterTop.position.set(0, 1.25, -3);
+            kfc.add(counterTop);
+            
+            // 菜单板
+            const menuBoard = new THREE.Mesh(
+                new THREE.BoxGeometry(4, 2.5, 0.1),
+                new THREE.MeshPhongMaterial({ color: 0x222222 })
+            );
+            menuBoard.position.set(0, 2.5, -3.5);
+            kfc.add(menuBoard);
+            
+            // KFC标志
+            const logo = new THREE.Mesh(
+                new THREE.BoxGeometry(1.5, 1.5, 0.15),
+                new THREE.MeshPhongMaterial({ color: 0xFF0000, emissive: 0x880000 })
+            );
+            logo.position.set(0, 4.2, -3.5);
+            kfc.add(logo);
+            
+            // 餐桌（4张）
+            for (let row = 0; row < 2; row++) {
+                for (let col = -1; col <= 1; col += 2) {
+                    const table = new THREE.Mesh(
+                        new THREE.CylinderGeometry(0.6, 0.6, 0.05, 16),
+                        new THREE.MeshPhongMaterial({ color: 0xFFFFFF })
+                    );
+                    table.position.set(col * 2, 0.75, 1 + row * 2.5);
+                    table.castShadow = true;
+                    kfc.add(table);
+                    
+                    // 桌腿
+                    const tableLeg = new THREE.Mesh(
+                        new THREE.CylinderGeometry(0.08, 0.12, 0.75, 8),
+                        new THREE.MeshPhongMaterial({ color: 0xCCCCCC })
+                    );
+                    tableLeg.position.set(col * 2, 0.375, 1 + row * 2.5);
+                    kfc.add(tableLeg);
+                    
+                    // 椅子（每桌2把）
+                    for (let side = -1; side <= 1; side += 2) {
+                        const chair = new THREE.Mesh(
+                            new THREE.BoxGeometry(0.5, 0.05, 0.5),
+                            new THREE.MeshPhongMaterial({ color: 0xDD0000 })
+                        );
+                        chair.position.set(col * 2, 0.45, 1 + row * 2.5 + side * 0.9);
+                        kfc.add(chair);
+                        
+                        const backrest = new THREE.Mesh(
+                            new THREE.BoxGeometry(0.5, 0.5, 0.05),
+                            new THREE.MeshPhongMaterial({ color: 0xDD0000 })
+                        );
+                        backrest.position.set(col * 2, 0.7, 1 + row * 2.5 + side * 1.15);
+                        kfc.add(backrest);
+                    }
+                }
+            }
+            
+            // 垃圾桶
+            const trashBin = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.3, 0.35, 0.8, 8),
+                new THREE.MeshPhongMaterial({ color: 0x666666 })
+            );
+            trashBin.position.set(3.5, 0.4, 2);
+            kfc.add(trashBin);
+            
+            // 饮料机
+            const drinkMachine = new THREE.Mesh(
+                new THREE.BoxGeometry(0.8, 1.5, 0.6),
+                new THREE.MeshPhongMaterial({ color: 0x333333 })
+            );
+            drinkMachine.position.set(-3, 0.75, -2);
+            drinkMachine.castShadow = true;
+            kfc.add(drinkMachine);
+            
+            // 托盘（在柜台上）
+            for (let i = 0; i < 3; i++) {
+                const tray = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.5, 0.02, 0.4),
+                    new THREE.MeshPhongMaterial({ color: 0xFF6600 })
+                );
+                tray.position.set(-1.5 + i * 0.7, 1.32, -3);
+                kfc.add(tray);
+            }
+
+            scene.add(kfc);
+            targetObjects.push(kfc);
+
+            // 脏污
+            const dirtyParts = [counter, counterTop, menuBoard, logo, trashBin, drinkMachine, floor];
+            dirtyParts.forEach(part => {
+                const count = part === floor ? 80 : part === counter ? 50 : part === counterTop ? 60 : 40;
+                for (let i = 0; i < count; i++) {
+                    const box = new THREE.Box3().setFromObject(part);
+                    const size = new THREE.Vector3();
+                    box.getSize(size);
+                    const s = new THREE.Vector3(
+                        (Math.random()-0.5) * size.x * 0.9,
+                        (Math.random()-0.5) * size.y * 0.9,
+                        (Math.random()-0.5) * size.z * 0.9
+                    );
+                    addDirtySpot(part, s, 0.3 + Math.random()*0.5);
+                }
+            });
+            
+            // 餐桌脏污
+            kfc.children.forEach(child => {
+                if (child.geometry && child.geometry.type === 'CylinderGeometry' && child.position.y > 0.7) {
+                    for (let i = 0; i < 35; i++) {
+                        const s = new THREE.Vector3((Math.random()-0.5)*1.1, 0, (Math.random()-0.5)*1.1);
+                        addDirtySpot(child, s, 0.25 + Math.random()*0.4);
+                    }
+                }
+            });
+
+            camera.position.set(0, 3, 7);
+        }
+
+        function buildBuilding() {
+            clearLevel();
+            const building = new THREE.Group();
+            
+            // 主楼体（10层）
+            const mainBody = new THREE.Mesh(
+                new THREE.BoxGeometry(6, 20, 4),
+                new THREE.MeshPhongMaterial({ color: 0x888888 })
+            );
+            mainBody.position.y = 10;
+            mainBody.castShadow = true;
+            building.add(mainBody);
+            
+            // 窗户（每层4个）
+            for (let floor = 0; floor < 10; floor++) {
+                for (let col = 0; col < 4; col++) {
+                    const window = new THREE.Mesh(
+                        new THREE.PlaneGeometry(0.8, 1.2),
+                        new THREE.MeshPhongMaterial({ color: 0x4488BB, transparent: true, opacity: 0.6 })
+                    );
+                    window.position.set(-2.5 + col * 1.5, 1.5 + floor * 2, 2.01);
+                    building.add(window);
+                    
+                    // 背面窗户
+                    const windowBack = window.clone();
+                    windowBack.position.z = -2.01;
+                    windowBack.rotation.y = Math.PI;
+                    building.add(windowBack);
+                }
+            }
+            
+            // 侧面窗户
+            for (let floor = 0; floor < 10; floor++) {
+                for (let side = -1; side <= 1; side += 2) {
+                    for (let i = 0; i < 2; i++) {
+                        const sideWindow = new THREE.Mesh(
+                            new THREE.PlaneGeometry(0.8, 1.2),
+                            new THREE.MeshPhongMaterial({ color: 0x4488BB, transparent: true, opacity: 0.6 })
+                        );
+                        sideWindow.position.set(side * 3.01, 1.5 + floor * 2, -1 + i * 2);
+                        sideWindow.rotation.y = side > 0 ? -Math.PI/2 : Math.PI/2;
+                        building.add(sideWindow);
+                    }
+                }
+            }
+            
+            // 顶部
+            const roof = new THREE.Mesh(
+                new THREE.BoxGeometry(6.2, 0.5, 4.2),
+                new THREE.MeshPhongMaterial({ color: 0x555555 })
+            );
+            roof.position.y = 20.25;
+            building.add(roof);
+            
+            // 大门
+            const door = new THREE.Mesh(
+                new THREE.BoxGeometry(2, 3, 0.2),
+                new THREE.MeshPhongMaterial({ color: 0x333333 })
+            );
+            door.position.set(0, 1.5, 2.1);
+            building.add(door);
+            
+            // 门把手
+            const doorHandle = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.05, 0.05, 0.3, 8),
+                new THREE.MeshPhongMaterial({ color: 0xFFD700 })
+            );
+            doorHandle.rotation.x = Math.PI/2;
+            doorHandle.position.set(0.6, 1.5, 2.2);
+            building.add(doorHandle);
+            
+            // 台阶
+            for (let i = 0; i < 3; i++) {
+                const step = new THREE.Mesh(
+                    new THREE.BoxGeometry(3, 0.2, 0.8),
+                    new THREE.MeshPhongMaterial({ color: 0x666666 })
+                );
+                step.position.set(0, 0.1 + i * 0.2, 2.5 + i * 0.3);
+                building.add(step);
+            }
+            
+            // 招牌
+            const sign = new THREE.Mesh(
+                new THREE.BoxGeometry(4, 1, 0.2),
+                new THREE.MeshPhongMaterial({ color: 0x0066CC, emissive: 0x003366 })
+            );
+            sign.position.set(0, 4, 2.15);
+            building.add(sign);
+            
+            // 空调外机（每层2个）
+            for (let floor = 1; floor < 10; floor++) {
+                for (let side = -1; side <= 1; side += 2) {
+                    const ac = new THREE.Mesh(
+                        new THREE.BoxGeometry(0.6, 0.4, 0.3),
+                        new THREE.MeshPhongMaterial({ color: 0xAAAAAA })
+                    );
+                    ac.position.set(side * 2.5, 1 + floor * 2, 2.2);
+                    building.add(ac);
+                }
+            }
+
+            scene.add(building);
+            targetObjects.push(building);
+
+            // 脏污
+            [mainBody, roof, door, sign].forEach(part => {
+                const count = part === mainBody ? 120 : part === roof ? 60 : 50;
+                for (let i = 0; i < count; i++) {
+                    const box = new THREE.Box3().setFromObject(part);
+                    const size = new THREE.Vector3();
+                    box.getSize(size);
+                    const s = new THREE.Vector3(
+                        (Math.random()-0.5) * size.x * 0.95,
+                        (Math.random()-0.5) * size.y * 0.95,
+                        (Math.random()-0.5) * size.z * 0.95
+                    );
+                    addDirtySpot(part, s, 0.35 + Math.random()*0.6);
+                }
+            });
+            
+            // 窗户脏污
+            building.children.forEach(child => {
+                if (child.geometry && child.geometry.type === 'PlaneGeometry') {
+                    for (let i = 0; i < 15; i++) {
+                        const s = new THREE.Vector3((Math.random()-0.5)*0.7, (Math.random()-0.5)*1.1, 0.01);
+                        addDirtySpot(child, s, 0.25 + Math.random()*0.4);
+                    }
+                }
+            });
+
+            camera.position.set(0, 12, 20);
+        }
+
+        function buildMixue() {
+            clearLevel();
+            const mixue = new THREE.Group();
+            
+            // 地板
+            const floor = new THREE.Mesh(
+                new THREE.PlaneGeometry(10, 8),
+                new THREE.MeshPhongMaterial({ color: 0xEEEEEE })
+            );
+            floor.rotation.x = -Math.PI/2;
+            floor.position.y = 0.01;
+            mixue.add(floor);
+            
+            // 店面墙壁（红色主题）
+            const wall = new THREE.Mesh(
+                new THREE.BoxGeometry(8, 4, 0.2),
+                new THREE.MeshPhongMaterial({ color: 0xDD0000 })
+            );
+            wall.position.set(0, 2, -3.5);
+            wall.castShadow = true;
+            mixue.add(wall);
+            
+            // 招牌（红色背景）
+            const signBoard = new THREE.Mesh(
+                new THREE.BoxGeometry(6, 1.5, 0.3),
+                new THREE.MeshPhongMaterial({ color: 0xFF0000, emissive: 0x880000 })
+            );
+            signBoard.position.set(0, 4.5, -3.4);
+            mixue.add(signBoard);
+            
+            // 招牌文字区域（白色）
+            const signText = new THREE.Mesh(
+                new THREE.PlaneGeometry(5.5, 1.2),
+                new THREE.MeshPhongMaterial({ color: 0xFFFFFF })
+            );
+            signText.position.set(0, 4.5, -3.25);
+            mixue.add(signText);
+            
+            // 雪王logo位置（圆形白色）
+            const logoCircle = new THREE.Mesh(
+                new THREE.CircleGeometry(0.5, 32),
+                new THREE.MeshPhongMaterial({ color: 0xFFFFFF })
+            );
+            logoCircle.position.set(-2, 4.5, -3.2);
+            mixue.add(logoCircle);
+            
+            // 雪王简化形象（雪人）
+            const snowmanBody = new THREE.Mesh(
+                new THREE.SphereGeometry(0.3, 16, 16),
+                new THREE.MeshPhongMaterial({ color: 0xFFFFFF })
+            );
+            snowmanBody.position.set(-2, 4.5, -3.15);
+            mixue.add(snowmanBody);
+            
+            const snowmanHead = new THREE.Mesh(
+                new THREE.SphereGeometry(0.2, 16, 16),
+                new THREE.MeshPhongMaterial({ color: 0xFFFFFF })
+            );
+            snowmanHead.position.set(-2, 4.8, -3.15);
+            mixue.add(snowmanHead);
+            
+            // 雪王帽子（红色）
+            const hat = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.15, 0.15, 0.2, 16),
+                new THREE.MeshPhongMaterial({ color: 0xFF0000 })
+            );
+            hat.position.set(-2, 5, -3.15);
+            mixue.add(hat);
+            
+            // 柜台
+            const counter = new THREE.Mesh(
+                new THREE.BoxGeometry(6, 1.2, 1.2),
+                new THREE.MeshPhongMaterial({ color: 0xFFFFFF })
+            );
+            counter.position.set(0, 0.6, -2.5);
+            counter.castShadow = true;
+            mixue.add(counter);
+            
+            // 柜台台面（红色装饰）
+            const counterTop = new THREE.Mesh(
+                new THREE.BoxGeometry(6.2, 0.1, 1.3),
+                new THREE.MeshPhongMaterial({ color: 0xFF0000 })
+            );
+            counterTop.position.set(0, 1.25, -2.5);
+            mixue.add(counterTop);
+            
+            // 冰淇淋机
+            const iceCreamMachine = new THREE.Mesh(
+                new THREE.BoxGeometry(0.8, 1.5, 0.8),
+                new THREE.MeshPhongMaterial({ color: 0xCCCCCC })
+            );
+            iceCreamMachine.position.set(-2, 1.5, -2.5);
+            mixue.add(iceCreamMachine);
+            
+            // 饮料机
+            const drinkMachine = new THREE.Mesh(
+                new THREE.BoxGeometry(1, 1.8, 0.6),
+                new THREE.MeshPhongMaterial({ color: 0x333333 })
+            );
+            drinkMachine.position.set(2, 1.2, -2.5);
+            mixue.add(drinkMachine);
+            
+            // 餐桌（红白配色）
+            for (let i = 0; i < 3; i++) {
+                const table = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.5, 0.5, 0.05, 16),
+                    new THREE.MeshPhongMaterial({ color: 0xFFFFFF })
+                );
+                table.position.set(-2 + i * 2, 0.75, 1);
+                table.castShadow = true;
+                mixue.add(table);
+                
+                const tableLeg = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.08, 0.1, 0.75, 8),
+                    new THREE.MeshPhongMaterial({ color: 0xFF0000 })
+                );
+                tableLeg.position.set(-2 + i * 2, 0.375, 1);
+                mixue.add(tableLeg);
+                
+                // 椅子（红色）
+                for (let side = -1; side <= 1; side += 2) {
+                    const chair = new THREE.Mesh(
+                        new THREE.BoxGeometry(0.4, 0.05, 0.4),
+                        new THREE.MeshPhongMaterial({ color: 0xFF0000 })
+                    );
+                    chair.position.set(-2 + i * 2, 0.45, 1 + side * 0.8);
+                    mixue.add(chair);
+                }
+            }
+            
+            // 杯子（在柜台上）
+            for (let i = 0; i < 4; i++) {
+                const cup = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.1, 0.08, 0.25, 16),
+                    new THREE.MeshPhongMaterial({ color: 0xFFFFFF })
+                );
+                cup.position.set(-1.5 + i * 0.5, 1.4, -2.5);
+                mixue.add(cup);
+            }
+            
+            // 垃圾桶
+            const trash = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.3, 0.35, 0.8, 8),
+                new THREE.MeshPhongMaterial({ color: 0xFF0000 })
+            );
+            trash.position.set(3.5, 0.4, 2);
+            mixue.add(trash);
+
+            scene.add(mixue);
+            targetObjects.push(mixue);
+
+            // 脏污
+            const dirtyParts = [wall, signBoard, signText, counter, counterTop, iceCreamMachine, drinkMachine, floor];
+            dirtyParts.forEach(part => {
+                const count = part === floor ? 80 : part === wall ? 60 : 50;
+                for (let i = 0; i < count; i++) {
+                    const box = new THREE.Box3().setFromObject(part);
+                    const size = new THREE.Vector3();
+                    box.getSize(size);
+                    const s = new THREE.Vector3(
+                        (Math.random()-0.5) * size.x * 0.9,
+                        (Math.random()-0.5) * size.y * 0.9,
+                        (Math.random()-0.5) * size.z * 0.9
+                    );
+                    addDirtySpot(part, s, 0.3 + Math.random()*0.5);
+                }
+            });
+            
+            // 餐桌脏污
+            mixue.children.forEach(child => {
+                if (child.geometry && child.geometry.type === 'CylinderGeometry' && child.position.y > 0.7) {
+                    for (let i = 0; i < 30; i++) {
+                        const s = new THREE.Vector3((Math.random()-0.5)*0.9, 0, (Math.random()-0.5)*0.9);
+                        addDirtySpot(child, s, 0.25 + Math.random()*0.4);
+                    }
+                }
+            });
+
+            camera.position.set(0, 3, 7);
+        }
+
         // ========== 游戏状态 ==========
         let isPlaying = false, isSpraying = false;
         let waterPressure = 100;
+        let viewMode = 0; // 0=第一人称, 1=第三人称, 2=自由视角
+        let orbitRadius = 10, orbitTheta = 0, orbitPhi = Math.PI/4;
+        let camYaw = 0, camPitch = 0;
+        let gunType = 0; // 0=标准, 1=散射, 2=高压, 3=火箭筒, 4=原子弹
+        const gunTypes = [
+            { name: '标准水枪', consume: 0.15, range: 1, particles: 3, damage: 1, color: 0x44BBFF, rocket: false, nuke: false },
+            { name: '散射水枪', consume: 0.25, range: 2, particles: 8, damage: 0.7, color: 0x66DDFF, rocket: false, nuke: false },
+            { name: '高压水枪', consume: 0.3, range: 0.5, particles: 1, damage: 2, color: 0x0088FF, rocket: false, nuke: false },
+            { name: '火箭筒水炮', consume: 1, range: 3, particles: 20, damage: 5, color: 0xFF6600, rocket: true, nuke: false },
+            { name: '原子弹水炮', consume: 10, range: 15, particles: 100, damage: 999, color: 0xFFFF00, rocket: true, nuke: true }
+        ];
         const keys = {};
 
         function startLevel(type) {
             document.getElementById('levelSelect').style.display = 'none';
             if (type === 'car') buildCar();
             else if (type === 'house') buildHouse();
-            else buildPlayground();
+            else if (type === 'playground') buildPlayground();
+            else if (type === 'robot') buildRobot();
+            else if (type === 'kitchen') buildKitchen();
+            else if (type === 'classroom') buildClassroom();
+            else if (type === 'kfc') buildKFC();
+            else if (type === 'building') buildBuilding();
+            else if (type === 'mixue') buildMixue();
             isPlaying = true;
+            viewMode = 0;
+            gunType = 0;
             waterPressure = 100;
+            camBasePos.set(0, 3, 8);
+            camYaw = 0;
+            camPitch = 0;
+            orbitRadius = 10;
+            orbitTheta = 0;
+            orbitPhi = Math.PI/4;
+            document.getElementById('viewToggle').textContent = '📷 第一人称 (V)';
+            document.getElementById('gunType').textContent = gunTypes[0].name;
             renderer.domElement.requestPointerLock();
         }
 
         // 鼠标控制
-        let camYaw = 0, camPitch = 0;
+        const camBasePos = new THREE.Vector3(0, 3, 8);
+        const sceneCenter = new THREE.Vector3(0, 2, 0);
+        
         document.addEventListener('mousemove', e => {
             if (!isPlaying) return;
             if (document.pointerLockElement) {
-                camYaw -= e.movementX * 0.003;
-                camPitch -= e.movementY * 0.003;
-                camPitch = Math.max(-1.2, Math.min(1.2, camPitch));
+                if (viewMode === 2) {
+                    // 自由视角：轨道旋转
+                    orbitTheta -= e.movementX * 0.005;
+                    orbitPhi -= e.movementY * 0.005;
+                    orbitPhi = Math.max(0.1, Math.min(Math.PI - 0.1, orbitPhi));
+                } else {
+                    // 第一/三人称：正常旋转
+                    camYaw -= e.movementX * 0.003;
+                    camPitch -= e.movementY * 0.003;
+                    camPitch = Math.max(-1.2, Math.min(1.2, camPitch));
+                }
             }
         });
 
         document.addEventListener('mousedown', () => { isSpraying = true; });
         document.addEventListener('mouseup', () => { isSpraying = false; });
+        
+        // 鼠标滚轮缩放
+        document.addEventListener('wheel', e => {
+            if (isPlaying && viewMode === 2) {
+                e.preventDefault();
+                orbitRadius += e.deltaY * 0.01;
+                orbitRadius = Math.max(3, Math.min(50, orbitRadius));
+            }
+        }, { passive: false });
+        
         renderer.domElement.addEventListener('click', () => {
             if (isPlaying && !document.pointerLockElement) renderer.domElement.requestPointerLock();
         });
 
-        document.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
-        document.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+        document.addEventListener('keydown', e => {
+            keys[e.key.toLowerCase()] = true;
+            // 自由视角缩放
+            if (viewMode === 2) {
+                if (e.key === '=' || e.key === '+') orbitRadius = Math.max(3, orbitRadius - 1);
+                if (e.key === '-' || e.key === '_') orbitRadius = Math.min(50, orbitRadius + 1);
+            }
+        });
+        document.addEventListener('keyup', e => {
+            keys[e.key.toLowerCase()] = false;
+            if (e.key.toLowerCase() === 'v' && isPlaying) {
+                viewMode = (viewMode + 1) % 3;
+                const modes = ['📷 第一人称 (V)', '📷 第三人称 (V)', '📷 自由视角 (V)'];
+                document.getElementById('viewToggle').textContent = modes[viewMode];
+            }
+            if (e.key.toLowerCase() === 'g' && isPlaying) {
+                gunType = (gunType + 1) % gunTypes.length;
+                document.getElementById('gunType').textContent = gunTypes[gunType].name;
+                waterBeamMat.color.setHex(gunTypes[gunType].color);
+            }
+        });
+
+        document.getElementById('viewToggle').addEventListener('click', () => {
+            if (isPlaying) {
+                viewMode = (viewMode + 1) % 3;
+                const modes = ['📷 第一人称 (V)', '📷 第三人称 (V)', '📷 自由视角 (V)'];
+                document.getElementById('viewToggle').textContent = modes[viewMode];
+            }
+        });
+
+        function switchGun() {
+            if (!isPlaying) return;
+            gunType = (gunType + 1) % gunTypes.length;
+            document.getElementById('gunType').textContent = gunTypes[gunType].name;
+            waterBeamMat.color.setHex(gunTypes[gunType].color);
+        }
+
+        function switchView() {
+            if (!isPlaying) return;
+            viewMode = (viewMode + 1) % 3;
+            const modes = ['📷 第一人称 (V)', '📷 第三人称 (V)', '📷 自由视角 (V)'];
+            document.getElementById('viewToggle').textContent = modes[viewMode];
+        }
 
         // ========== 动画 ==========
         let waterSoundTimer = 0;
@@ -391,12 +1152,30 @@
             if (isPlaying) {
                 // WASD移动
                 const moveSpeed = 0.08;
-                const forward = new THREE.Vector3(-Math.sin(camYaw), 0, -Math.cos(camYaw));
-                const right = new THREE.Vector3(-Math.cos(camYaw), 0, Math.sin(camYaw));
-                if (keys['w']) camera.position.add(forward.clone().multiplyScalar(moveSpeed));
-                if (keys['s']) camera.position.add(forward.clone().multiplyScalar(-moveSpeed));
-                if (keys['a']) camera.position.add(right.clone().multiplyScalar(-moveSpeed));
-                if (keys['d']) camera.position.add(right.clone().multiplyScalar(moveSpeed));
+                if (viewMode === 2) {
+                    // 自由视角：移动观察中心点
+                    const forward = new THREE.Vector3(
+                        Math.sin(orbitTheta) * Math.sin(orbitPhi),
+                        -Math.cos(orbitPhi),
+                        Math.cos(orbitTheta) * Math.sin(orbitPhi)
+                    ).normalize();
+                    const right = new THREE.Vector3(-Math.cos(orbitTheta), 0, Math.sin(orbitTheta)).normalize();
+                    
+                    if (keys['w']) sceneCenter.add(forward.clone().multiplyScalar(moveSpeed * 2));
+                    if (keys['s']) sceneCenter.add(forward.clone().multiplyScalar(-moveSpeed * 2));
+                    if (keys['a']) sceneCenter.add(right.clone().multiplyScalar(-moveSpeed * 2));
+                    if (keys['d']) sceneCenter.add(right.clone().multiplyScalar(moveSpeed * 2));
+                    if (keys['q']) sceneCenter.y += moveSpeed * 2;
+                    if (keys['e']) sceneCenter.y -= moveSpeed * 2;
+                } else {
+                    // 第一/三人称：移动角色
+                    const forward = new THREE.Vector3(-Math.sin(camYaw), 0, -Math.cos(camYaw));
+                    const right = new THREE.Vector3(-Math.cos(camYaw), 0, Math.sin(camYaw));
+                    if (keys['w']) camBasePos.add(forward.clone().multiplyScalar(moveSpeed));
+                    if (keys['s']) camBasePos.add(forward.clone().multiplyScalar(-moveSpeed));
+                    if (keys['a']) camBasePos.add(right.clone().multiplyScalar(-moveSpeed));
+                    if (keys['d']) camBasePos.add(right.clone().multiplyScalar(moveSpeed));
+                }
 
                 // 相机朝向
                 const lookDir = new THREE.Vector3(
@@ -404,50 +1183,113 @@
                     Math.sin(camPitch),
                     -Math.cos(camYaw) * Math.cos(camPitch)
                 );
-                camera.lookAt(camera.position.clone().add(lookDir));
+
+                // 视角切换
+                if (viewMode === 0) {
+                    // 第一人称
+                    camera.position.copy(camBasePos);
+                    camera.lookAt(camBasePos.clone().add(lookDir));
+                } else if (viewMode === 1) {
+                    // 第三人称
+                    const offset = lookDir.clone().multiplyScalar(-5).add(new THREE.Vector3(0, 2, 0));
+                    camera.position.copy(camBasePos.clone().add(offset));
+                    camera.lookAt(camBasePos);
+                } else {
+                    // 自由视角（轨道相机）
+                    camera.position.set(
+                        sceneCenter.x + orbitRadius * Math.sin(orbitPhi) * Math.cos(orbitTheta),
+                        sceneCenter.y + orbitRadius * Math.cos(orbitPhi),
+                        sceneCenter.z + orbitRadius * Math.sin(orbitPhi) * Math.sin(orbitTheta)
+                    );
+                    camera.lookAt(sceneCenter);
+                }
 
                 // 喷水
                 if (isSpraying && waterPressure > 0) {
-                    waterPressure = Math.max(0, waterPressure - 0.15);
-
-                    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-                    const intersects = raycaster.intersectObjects(scene.children, true);
-
-                    if (intersects.length > 0) {
-                        const hit = intersects[0];
-
-                        // 水柱
-                        waterBeam.visible = true;
-                        const mid = camera.position.clone().add(hit.point).multiplyScalar(0.5);
-                        waterBeam.position.copy(mid);
-                        waterBeam.scale.y = camera.position.distanceTo(hit.point);
-                        waterBeam.lookAt(hit.point);
-                        waterBeam.rotateX(Math.PI/2);
-
-                        // 水花粒子
-                        for (let i = 0; i < 3; i++) {
-                            spawnWaterParticle(hit.point, hit.face ? hit.face.normal : new THREE.Vector3(0,1,0));
+                    const gun = gunTypes[gunType];
+                    
+                    if (gun.rocket) {
+                        // 火箭筒模式：发射水炮弹
+                        if (waterPressure >= gun.consume) {
+                            waterPressure -= gun.consume;
+                            
+                            const sprayOrigin = viewMode === 1 ? camBasePos.clone() : 
+                                              viewMode === 2 ? camera.position.clone() : 
+                                              camera.position.clone();
+                            
+                            const direction = new THREE.Vector3(0, 0, -1);
+                            direction.applyQuaternion(camera.quaternion);
+                            
+                            const rocketSize = gun.nuke ? 0.4 : 0.2;
+                            const rocket = new THREE.Mesh(
+                                new THREE.SphereGeometry(rocketSize, 8, 8),
+                                new THREE.MeshBasicMaterial({ color: gun.color, emissive: gun.color })
+                            );
+                            rocket.position.copy(sprayOrigin);
+                            scene.add(rocket);
+                            
+                            rockets.push({
+                                mesh: rocket,
+                                velocity: direction.clone().multiplyScalar(gun.nuke ? 0.3 : 0.5),
+                                life: gun.nuke ? 200 : 100,
+                                isNuke: gun.nuke
+                            });
+                            
+                            if (gun.nuke) playNuke();
+                            else playRocket();
+                            isSpraying = false; // 单发模式
                         }
+                    } else {
+                        // 普通水枪模式
+                        waterPressure = Math.max(0, waterPressure - gun.consume);
 
-                        // 清洗脏污
-                        dirtySpots.forEach(spot => {
-                            if (spot.cleaned) return;
-                            const spotWorld = new THREE.Vector3();
-                            spot.mesh.getWorldPosition(spotWorld);
-                            if (spotWorld.distanceTo(hit.point) < 0.5) {
-                                spot.hp--;
-                                spot.mesh.material.opacity = (spot.hp / 6) * 0.7;
-                                if (spot.hp <= 0) {
-                                    spot.cleaned = true;
-                                    spot.mesh.visible = false;
-                                    cleanedSpots++;
-                                    playClean();
-                                }
+                        raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+                        const intersects = raycaster.intersectObjects(scene.children, true);
+
+                        if (intersects.length > 0) {
+                            const hit = intersects[0];
+
+                            // 水柱起点
+                            const sprayOrigin = viewMode === 1 ? camBasePos.clone() : 
+                                              viewMode === 2 ? camera.position.clone() : 
+                                              camera.position.clone();
+
+                            // 水柱
+                            waterBeam.visible = true;
+                            const mid = sprayOrigin.clone().add(hit.point).multiplyScalar(0.5);
+                            waterBeam.position.copy(mid);
+                            waterBeam.scale.y = sprayOrigin.distanceTo(hit.point);
+                            waterBeam.lookAt(hit.point);
+                            waterBeam.rotateX(Math.PI/2);
+
+                            // 水花粒子
+                            for (let i = 0; i < gun.particles; i++) {
+                                const offset = gun.range > 1 ? 
+                                    new THREE.Vector3((Math.random()-0.5)*gun.range, (Math.random()-0.5)*gun.range, (Math.random()-0.5)*gun.range) :
+                                    new THREE.Vector3(0, 0, 0);
+                                spawnWaterParticle(hit.point.clone().add(offset), hit.face ? hit.face.normal : new THREE.Vector3(0,1,0), gun.color);
                             }
-                        });
 
-                        waterSoundTimer -= 0.016;
-                        if (waterSoundTimer <= 0) { playWater(); waterSoundTimer = 0.1; }
+                            // 清洗脏污
+                            dirtySpots.forEach(spot => {
+                                if (spot.cleaned) return;
+                                const spotWorld = new THREE.Vector3();
+                                spot.mesh.getWorldPosition(spotWorld);
+                                if (spotWorld.distanceTo(hit.point) < gun.range) {
+                                    spot.hp -= gun.damage;
+                                    spot.mesh.material.opacity = Math.max(0, spot.hp / 6) * 0.95;
+                                    if (spot.hp <= 0) {
+                                        spot.cleaned = true;
+                                        spot.mesh.visible = false;
+                                        cleanedSpots++;
+                                        playClean();
+                                    }
+                                }
+                            });
+
+                            waterSoundTimer -= 0.016;
+                            if (waterSoundTimer <= 0) { playWater(); waterSoundTimer = 0.1; }
+                        }
                     }
                 } else {
                     waterBeam.visible = false;
@@ -466,6 +1308,168 @@
                     p.life -= 0.04;
                     p.mesh.material.opacity = p.life * 0.8;
                     if (p.life <= 0) { scene.remove(p.mesh); waterParticles.splice(i, 1); }
+                }
+
+                // 更新火箭弹
+                for (let i = rockets.length-1; i >= 0; i--) {
+                    const r = rockets[i];
+                    
+                    // 自动跟踪最近的脏污
+                    let nearestSpot = null;
+                    let minDist = Infinity;
+                    dirtySpots.forEach(spot => {
+                        if (spot.cleaned) return;
+                        const spotWorld = new THREE.Vector3();
+                        spot.mesh.getWorldPosition(spotWorld);
+                        const dist = r.mesh.position.distanceTo(spotWorld);
+                        if (dist < 10 && dist < minDist) {
+                            minDist = dist;
+                            nearestSpot = spotWorld;
+                        }
+                    });
+                    
+                    // 调整飞行方向追踪目标
+                    if (nearestSpot) {
+                        const toTarget = nearestSpot.clone().sub(r.mesh.position).normalize();
+                        r.velocity.lerp(toTarget.multiplyScalar(r.isNuke ? 0.3 : 0.5), 0.1);
+                    }
+                    
+                    r.mesh.position.add(r.velocity);
+                    r.life--;
+                    
+                    // 原子弹发光效果
+                    if (r.isNuke) {
+                        r.mesh.material.emissiveIntensity = 0.5 + Math.sin(Date.now() * 0.01) * 0.5;
+                    }
+                    
+                    // 检测碰撞
+                    raycaster.set(r.mesh.position, r.velocity.clone().normalize());
+                    const hits = raycaster.intersectObjects(scene.children, true);
+                    
+                    if (hits.length > 0 && hits[0].distance < 0.3 || r.life <= 0) {
+                        // 爆炸效果
+                        const explosionPos = r.mesh.position.clone();
+                        const explosionRange = r.isNuke ? 15 : 3;
+                        const explosionDamage = r.isNuke ? 999 : 5;
+                        const particleCount = r.isNuke ? 100 : 30;
+                        
+                        if (r.isNuke) {
+                            playNuke();
+                            // 闪光效果
+                            scene.background = new THREE.Color(0xFFFFFF);
+                            setTimeout(() => scene.background = new THREE.Color(0x88bbee), 200);
+                            
+                            // 创建蘑菇云
+                            const cloudGroup = new THREE.Group();
+                            
+                            // 蘑菇云柱（底部）
+                            const stem = new THREE.Mesh(
+                                new THREE.CylinderGeometry(0.5, 1.5, 5, 16),
+                                new THREE.MeshBasicMaterial({ 
+                                    color: 0xFF8800, 
+                                    transparent: true, 
+                                    opacity: 0.8 
+                                })
+                            );
+                            stem.position.copy(explosionPos);
+                            stem.position.y += 2.5;
+                            cloudGroup.add(stem);
+                            
+                            // 蘑菇云顶（上部）
+                            const cap = new THREE.Mesh(
+                                new THREE.SphereGeometry(2.5, 16, 16),
+                                new THREE.MeshBasicMaterial({ 
+                                    color: 0xFFAA00, 
+                                    transparent: true, 
+                                    opacity: 0.9 
+                                })
+                            );
+                            cap.position.copy(explosionPos);
+                            cap.position.y += 6;
+                            cap.scale.y = 0.6;
+                            cloudGroup.add(cap);
+                            
+                            // 蘑菇云环（中部）
+                            const ring = new THREE.Mesh(
+                                new THREE.TorusGeometry(2, 0.8, 8, 16),
+                                new THREE.MeshBasicMaterial({ 
+                                    color: 0xFF6600, 
+                                    transparent: true, 
+                                    opacity: 0.7 
+                                })
+                            );
+                            ring.position.copy(explosionPos);
+                            ring.position.y += 5;
+                            ring.rotation.x = Math.PI / 2;
+                            cloudGroup.add(ring);
+                            
+                            scene.add(cloudGroup);
+                            mushroomClouds.push({
+                                group: cloudGroup,
+                                life: 1,
+                                startY: explosionPos.y
+                            });
+                        } else {
+                            playExplosion();
+                        }
+                        
+                        // 爆炸粒子
+                        for (let j = 0; j < particleCount; j++) {
+                            const angle = Math.random() * Math.PI * 2;
+                            const angle2 = Math.random() * Math.PI;
+                            const normal = new THREE.Vector3(
+                                Math.sin(angle2) * Math.cos(angle),
+                                Math.sin(angle2) * Math.sin(angle),
+                                Math.cos(angle2)
+                            );
+                            spawnWaterParticle(explosionPos, normal, r.isNuke ? 0xFFFF00 : 0xFF6600);
+                        }
+                        
+                        // 范围清洗
+                        dirtySpots.forEach(spot => {
+                            if (spot.cleaned) return;
+                            const spotWorld = new THREE.Vector3();
+                            spot.mesh.getWorldPosition(spotWorld);
+                            if (spotWorld.distanceTo(explosionPos) < explosionRange) {
+                                spot.hp -= explosionDamage;
+                                spot.mesh.material.opacity = Math.max(0, spot.hp / 6) * 0.95;
+                                if (spot.hp <= 0) {
+                                    spot.cleaned = true;
+                                    spot.mesh.visible = false;
+                                    cleanedSpots++;
+                                    playClean();
+                                }
+                            }
+                        });
+                        
+                        scene.remove(r.mesh);
+                        rockets.splice(i, 1);
+                    }
+                }
+
+                // 更新蘑菇云
+                for (let i = mushroomClouds.length-1; i >= 0; i--) {
+                    const cloud = mushroomClouds[i];
+                    cloud.life -= 0.01;
+                    
+                    // 上升和扩散
+                    cloud.group.position.y += 0.05;
+                    cloud.group.scale.x += 0.02;
+                    cloud.group.scale.z += 0.02;
+                    cloud.group.scale.y += 0.01;
+                    
+                    // 淡出
+                    cloud.group.children.forEach(child => {
+                        child.material.opacity = cloud.life * 0.8;
+                    });
+                    
+                    // 旋转
+                    cloud.group.rotation.y += 0.02;
+                    
+                    if (cloud.life <= 0) {
+                        scene.remove(cloud.group);
+                        mushroomClouds.splice(i, 1);
+                    }
                 }
 
                 // 进度
