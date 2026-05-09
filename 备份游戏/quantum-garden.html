@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>量子花园 - Quantum Garden</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a0a2e 50%, #0a1a2e 100%);
+            color: #fff;
+        }
+
+        #canvas {
+            display: block;
+            cursor: crosshair;
+        }
+
+        #ui {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+
+        #info {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px 20px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            font-size: 14px;
+        }
+
+        .stat {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+
+        .label {
+            color: #8888ff;
+        }
+
+        .value {
+            color: #ffff88;
+            font-weight: bold;
+        }
+
+        #title {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            font-size: 48px;
+            opacity: 0;
+            animation: fadeOut 3s forwards;
+            pointer-events: none;
+            text-shadow: 0 0 20px #fff, 0 0 40px #8888ff;
+        }
+
+        @keyframes fadeOut {
+            0% { opacity: 1; }
+            70% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <div id="title">量子花园<br><span style="font-size: 24px;">点击创造，聆听宇宙</span></div>
+
+    <div id="ui">
+        <div class="stat"><span class="label">能量:</span> <span class="value" id="energy">0</span></div>
+        <div class="stat"><span class="label">和谐度:</span> <span class="value" id="harmony">0%</span></div>
+        <div class="stat"><span class="label">维度:</span> <span class="value" id="dimension">3D</span></div>
+        <div class="stat"><span class="label">花朵:</span> <span class="value" id="flowers">0</span></div>
+    </div>
+
+    <div id="info">
+        点击种植量子花朵 · 花朵会相互吸引并发出音符 · 创造你的宇宙交响曲
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // 音频上下文
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        // 游戏状态
+        const state = {
+            energy: 0,
+            flowers: [],
+            particles: [],
+            connections: [],
+            blackholes: [],
+            dimension: 3,
+            time: 0
+        };
+
+        // 音阶（五声音阶）
+        const scale = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25];
+
+        // 量子花朵类
+        class QuantumFlower {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 0.5;
+                this.vy = (Math.random() - 0.5) * 0.5;
+                this.size = 20 + Math.random() * 30;
+                this.hue = Math.random() * 360;
+                this.petals = Math.floor(Math.random() * 5) + 5;
+                this.rotation = Math.random() * Math.PI * 2;
+                this.rotationSpeed = (Math.random() - 0.5) * 0.02;
+                this.pulsePhase = Math.random() * Math.PI * 2;
+                this.frequency = scale[Math.floor(Math.random() * scale.length)];
+                this.energy = 100;
+                this.age = 0;
+                this.maxAge = 1000 + Math.random() * 2000;
+            }
+
+            update(flowers) {
+                this.age++;
+                this.rotation += this.rotationSpeed;
+                this.pulsePhase += 0.05;
+
+                // 量子纠缠效应 - 花朵之间相互吸引
+                flowers.forEach(other => {
+                    if (other !== this) {
+                        const dx = other.x - this.x;
+                        const dy = other.y - this.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+
+                        if (dist < 200 && dist > 0) {
+                            const force = 0.02 / dist;
+                            this.vx += dx * force;
+                            this.vy += dy * force;
+
+                            // 创建连接粒子
+                            if (Math.random() < 0.05) {
+                                state.particles.push(new Particle(
+                                    this.x, this.y,
+                                    other.x, other.y,
+                                    this.hue
+                                ));
+                            }
+                        }
+                    }
+                });
+
+                // 边界反弹
+                if (this.x < 0 || this.x > canvas.width) this.vx *= -0.8;
+                if (this.y < 0 || this.y > canvas.height) this.vy *= -0.8;
+
+                // 摩擦力
+                this.vx *= 0.98;
+                this.vy *= 0.98;
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // 边界限制
+                this.x = Math.max(0, Math.min(canvas.width, this.x));
+                this.y = Math.max(0, Math.min(canvas.height, this.y));
+
+                this.energy = Math.max(0, this.energy - 0.05);
+            }
+
+            draw() {
+                const pulse = Math.sin(this.pulsePhase) * 0.2 + 1;
+                const currentSize = this.size * pulse * (this.energy / 100);
+                const alpha = Math.min(1, this.energy / 50);
+
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+
+                // 光晕
+                const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, currentSize * 2);
+                gradient.addColorStop(0, `hsla(${this.hue}, 100%, 70%, ${alpha * 0.3})`);
+                gradient.addColorStop(1, `hsla(${this.hue}, 100%, 50%, 0)`);
+                ctx.fillStyle = gradient;
+                ctx.fillRect(-currentSize * 2, -currentSize * 2, currentSize * 4, currentSize * 4);
+
+                // 花瓣
+                for (let i = 0; i < this.petals; i++) {
+                    const angle = (Math.PI * 2 / this.petals) * i;
+                    ctx.save();
+                    ctx.rotate(angle);
+
+                    ctx.beginPath();
+                    ctx.ellipse(currentSize * 0.6, 0, currentSize * 0.4, currentSize * 0.2, 0, 0, Math.PI * 2);
+                    ctx.fillStyle = `hsla(${this.hue}, 100%, 60%, ${alpha})`;
+                    ctx.fill();
+                    ctx.strokeStyle = `hsla(${this.hue}, 100%, 80%, ${alpha})`;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    ctx.restore();
+                }
+
+                // 花心
+                ctx.beginPath();
+                ctx.arc(0, 0, currentSize * 0.3, 0, Math.PI * 2);
+                ctx.fillStyle = `hsla(${(this.hue + 180) % 360}, 100%, 70%, ${alpha})`;
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            playNote() {
+                if (this.energy < 10) return;
+
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                oscillator.frequency.value = this.frequency;
+                oscillator.type = 'sine';
+
+                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+
+                oscillator.start(audioCtx.currentTime);
+                oscillator.stop(audioCtx.currentTime + 0.5);
+            }
+
+            isAlive() {
+                return this.energy > 0 && this.age < this.maxAge;
+            }
+        }
+
+        // 粒子类
+        class Particle {
+            constructor(x1, y1, x2, y2, hue) {
+                this.x = x1;
+                this.y = y1;
+                this.targetX = x2;
+                this.targetY = y2;
+                this.hue = hue;
+                this.life = 1;
+                this.speed = 0.02;
+                this.progress = 0;
+            }
+
+            update() {
+                this.progress += this.speed;
+                this.x = this.x + (this.targetX - this.x) * this.speed;
+                this.y = this.y + (this.targetY - this.y) * this.speed;
+                this.life -= 0.01;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
+                ctx.fillStyle = `hsla(${this.hue}, 100%, 70%, ${this.life})`;
+                ctx.fill();
+            }
+
+            isAlive() {
+                return this.life > 0;
+            }
+        }
+
+        // 点击种植花朵
+        canvas.addEventListener('click', (e) => {
+            const flower = new QuantumFlower(e.clientX, e.clientY);
+            state.flowers.push(flower);
+            state.energy += 10;
+            flower.playNote();
+
+            // 创建爆发粒子
+            for (let i = 0; i < 20; i++) {
+                const angle = (Math.PI * 2 / 20) * i;
+                const dist = 50 + Math.random() * 50;
+                state.particles.push(new Particle(
+                    e.clientX, e.clientY,
+                    e.clientX + Math.cos(angle) * dist,
+                    e.clientY + Math.sin(angle) * dist,
+                    flower.hue
+                ));
+            }
+        });
+
+        // 绘制连接线
+        function drawConnections() {
+            state.flowers.forEach((flower, i) => {
+                state.flowers.slice(i + 1).forEach(other => {
+                    const dx = other.x - flower.x;
+                    const dy = other.y - flower.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < 200) {
+                        const alpha = (1 - dist / 200) * 0.3;
+                        ctx.beginPath();
+                        ctx.moveTo(flower.x, flower.y);
+                        ctx.lineTo(other.x, other.y);
+                        ctx.strokeStyle = `hsla(${(flower.hue + other.hue) / 2}, 100%, 70%, ${alpha})`;
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+                });
+            });
+        }
+
+        // 计算和谐度
+        function calculateHarmony() {
+            if (state.flowers.length < 2) return 0;
+
+            let totalDist = 0;
+            let connections = 0;
+
+            state.flowers.forEach((flower, i) => {
+                state.flowers.slice(i + 1).forEach(other => {
+                    const dx = other.x - flower.x;
+                    const dy = other.y - flower.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 200) {
+                        totalDist += dist;
+                        connections++;
+                    }
+                });
+            });
+
+            return connections > 0 ? Math.floor((1 - totalDist / (connections * 200)) * 100) : 0;
+        }
+
+        // 更新UI
+        function updateUI() {
+            document.getElementById('energy').textContent = Math.floor(state.energy);
+            document.getElementById('harmony').textContent = calculateHarmony() + '%';
+            document.getElementById('dimension').textContent = state.dimension + 'D';
+            document.getElementById('flowers').textContent = state.flowers.length;
+        }
+
+        // 主循环
+        function animate() {
+            state.time++;
+
+            // 渐变背景
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            gradient.addColorStop(0, `hsl(${state.time * 0.1}, 30%, 5%)`);
+            gradient.addColorStop(0.5, `hsl(${state.time * 0.1 + 60}, 40%, 8%)`);
+            gradient.addColorStop(1, `hsl(${state.time * 0.1 + 120}, 30%, 5%)`);
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 绘制星空背景
+            for (let i = 0; i < 100; i++) {
+                const x = (i * 137.5 + state.time * 0.1) % canvas.width;
+                const y = (i * 197.3) % canvas.height;
+                const size = Math.sin(state.time * 0.01 + i) * 1 + 1;
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${Math.random() * 0.5 + 0.3})`;
+                ctx.fill();
+            }
+
+            // 绘制连接
+            drawConnections();
+
+            // 更新和绘制粒子
+            state.particles = state.particles.filter(p => {
+                p.update();
+                p.draw();
+                return p.isAlive();
+            });
+
+            // 更新和绘制花朵
+            state.flowers = state.flowers.filter(f => {
+                f.update(state.flowers);
+                f.draw();
+
+                // 随机播放音符
+                if (Math.random() < 0.01 && f.energy > 20) {
+                    f.playNote();
+                }
+
+                return f.isAlive();
+            });
+
+            // 能量衰减
+            state.energy = Math.max(0, state.energy - 0.1);
+
+            // 维度变化
+            if (state.flowers.length > 10) state.dimension = 4;
+            else if (state.flowers.length > 5) state.dimension = 3.5;
+            else state.dimension = 3;
+
+            updateUI();
+            requestAnimationFrame(animate);
+        }
+
+        // 窗口调整
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        // 启动
+        animate();
+    </script>
+</body>
+</html>
